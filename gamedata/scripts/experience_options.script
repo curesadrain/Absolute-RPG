@@ -1,0 +1,2163 @@
+---------------------------------------------------------------------------------------
+-- Experience Framework
+-- Options Menu
+
+-- Based on the options menu from 'ui_options.script'
+-- Use the 'Get' and 'Set' functions from this script to get or save the settings value
+-- Use the 'experience_on_option_change' callback like a 'on_option_change' to update your variables, after changing the settings
+-- The settings are imported in the same way as in MCM, but the file should be named '*_exp.script' and the function in it is 'on_exp_load'
+---------------------------------------------------------------------------------------
+
+
+local options = {}
+local opt_backup = {}
+local opt_temp = {}
+local opt_val = {}
+local opt_index = {}
+local opt_unknown = {}
+
+local ini_options                           = ini_file_ex("experience_framework\\cached\\options.ltx", true)
+local ini_presets							= ini_file("experience_framework\\presets\\_includes.ltx")
+local _opt_                                 = "/"
+local opt_section                           = "options"
+local opt_str                               = "ui_exp_"
+local opt_str_menu                          = "ui_exp_menu_"
+local opt_str_prst							= "ui_exp_prst_"
+local opt_str_lst                           = "ui_exp_lst_"
+
+local s_gsub								= string.gsub
+local lerp_color							= utils_xml.lerp_color
+local precision                             = 4
+local width_factor                          = utils_xml.is_widescreen() and 0.8 or 1
+local clr_o                                 = GetARGB(255, 250, 150, 75)
+local clr_g1                                = GetARGB(255, 170, 170, 170)
+local clr_g2                                = GetARGB(255, 200, 200, 200)
+local clr_w                                 = GetARGB(255, 255, 255, 255)
+local lerp_clr_1							= {{255,249,16,16}, {255,114,249,16}, {255,16,249,230}}
+local str_format_mult						= "x%s"
+local str_format_prec						= "%s%"
+local allowed_type = {
+	["check"]		= true,
+	["list"]		= true,
+	["input"]		= true,
+	["radio_h"]		= true,
+	["radio_v"]		= true,
+	["track"]		= true,
+	["image_list"]	= true
+}
+
+local function init_base_options()
+	options = {
+		{
+			id = "Info", gr = {
+				{
+					id = "AboutFramework", sh = true, gr = {
+						{id = "divider", type = "line"},
+						{id = "image", type = "image", link = "ui\\experience_framework\\info\\exp_logo.dds", size = {256,256}, pos = {101,0}},
+						{id = "title", type = "title", text = "ui_exp_Info_AboutFramework_title", align = "c", clr = {255,48,138,229}},
+						{id = "desc", type = "desc", text = "ui_exp_Info_AboutFramework_desc", clr = {255,116,164,216}},
+						{id = "divider", type = "line"},
+					}
+				},
+				{
+					id = "AboutExperience", sh = true, gr = {
+						{id = "divider", type = "line"},
+						{id = "image", type = "image", link = "ui\\experience_framework\\info\\about_exp.dds", size = {256,256}, pos = {101,0}},
+						{id = "title", type = "title", text = "ui_exp_Info_AboutExperience_title", align = "c", clr = {255,48,138,229}},
+						{id = "desc", type = "desc", text = "ui_exp_Info_AboutExperience_desc", clr = {255,116,164,216}},
+						{id = "divider", type = "line"},
+					}
+				},
+				{
+					id = "AboutSkills", sh = true, gr = {
+						{id = "divider", type = "line"},
+						{id = "image", type = "image", link = "ui\\experience_framework\\info\\about_skills.dds", size = {256,256}, pos = {101,0}},
+						{id = "title", type = "title", text = "ui_exp_Info_AboutSkills_title", align = "c", clr = {255,48,138,229}},
+						{id = "desc", type = "desc", text = "ui_exp_Info_AboutSkills_desc", clr = {255,116,164,216}},
+						{id = "divider", type = "line"},
+					}
+				},
+				{
+					id = "AboutPotions", sh = true, gr = {
+						{id = "divider", type = "line"},
+						{id = "image", type = "image", link = "ui\\experience_framework\\info\\about_potions.dds", size = {256,256}, pos = {101,0}},
+						{id = "title", type = "title", text = "ui_exp_Info_AboutPotions_title", align = "c", clr = {255,48,138,229}},
+						{id = "desc", type = "desc", text = "ui_exp_Info_AboutPotions_desc", clr = {255,116,164,216}},
+						{id = "divider", type = "line"},
+					}
+				},
+				{
+					id = "AboutTasks", sh = true, gr = {
+						{id = "divider", type = "line"},
+						{id = "image", type = "image", link = "ui\\experience_framework\\info\\about_tasks.dds", size = {256,256}, pos = {101,0}},
+						{id = "title", type = "title", text = "ui_exp_Info_AboutTasks_title", align = "c", clr = {255,48,138,229}},
+						{id = "desc", type = "desc", text = "ui_exp_Info_AboutTasks_desc", clr = {255,116,164,216}},
+						{id = "divider", type = "line"},
+					}
+				},
+				{
+					id = "AboutNLS", sh = true, gr = {
+						{id = "divider", type = "line"},
+						{id = "image", type = "image", link = "ui\\experience_framework\\info\\about_nls.dds", size = {256,256}, pos = {101,0}},
+						{id = "title", type = "title", text = "ui_exp_Info_AboutNLS_title", align = "c", clr = {255,48,138,229}},
+						{id = "desc", type = "desc", text = "ui_exp_Info_AboutNLS_desc", clr = {255,116,164,216}},
+						{id = "divider", type = "line"},
+					}
+				},
+				{
+					id = "AboutTraits", sh = true, gr = {
+						{id = "divider", type = "line"},
+						{id = "image", type = "image", link = "ui\\experience_framework\\info\\about_traits.dds", size = {256,256}, pos = {101,0}},
+						{id = "title", type = "title", text = "ui_exp_Info_AboutTraits_title", align = "c", clr = {255,48,138,229}},
+						{id = "desc", type = "desc", text = "ui_exp_Info_AboutTraits_desc", clr = {255,116,164,216}},
+						{id = "divider", type = "line"},
+					}
+				},
+				{
+					id = "AboutMultipliers", sh = true, gr = {
+						{id = "divider", type = "line"},
+						{id = "image", type = "image", link = "ui\\experience_framework\\info\\about_mults.dds", size = {256,256}, pos = {101,0}},
+						{id = "title", type = "title", text = "ui_exp_Info_AboutMultipliers_title", align = "c", clr = {255,48,138,229}},
+						{id = "desc", type = "desc", text = "ui_exp_Info_AboutMultipliers_desc", clr = {255,116,164,216}},
+						{id = "divider", type = "line"},
+					}
+				},
+				{
+					id = "DeleteMod", sh = true, gr = {
+						{id = "divider", type = "line"},
+						{id = "desc", type = "desc", text = "ui_exp_Info_DeleteMod_desc", clr = {255,153,255,255}},
+						{id = "divider", type = "line"},
+						{id = "divider", type = "line"},
+						{id = "DELETE_MOD", type = "button", functor_ui = {delete_framework_func}},
+						{id = "divider", type = "line"},
+					}
+				}
+			}
+		},
+		{
+			id = "Main", sh = true, gr = {
+				{id = "title", type = "slide", link = "ui_experience_option_slider_generator", text = "ui_exp_Main_title", size = {458,50}, spacing = 10},
+				{id = "G_MAX_LEVEL", type = "track", val = 2, min = 5, max = 300, step = 1, def = 300},
+				{id = "G_SKILLPOINT_PER_LEVEL", type = "track", val = 2, min = 1, max = 10, step = 1, def = 1},
+				{id = "G_MAX_PRESTIGE", type = "track", val = 2, min = 1, max = 10, step = 1, def = 5},
+				{id = "G_ADD_LEVEL_PER_PRESTIGE", type = "track", val = 2, min = 1, max = 10, step = 1, def = 5},
+				{id = "GLOBAL_EXPERIENCE_MULT", type = "track", val = 2, min = 0.05, max = 5, step = 0.05, def = 1.0, str_format = str_format_mult},
+				{id = "CAN_SPAWN_POTIONS", type = "check", val = 1, def = true},
+				{id = "AZAZEL_NEW_PROGRESS", type = "check", val = 1, def = true, precondition = {azazel_new_progpress_precond}},
+				{id = "divider", type = "line"},
+
+				{id = "traits_title", type = "title", text = "ui_exp_Main_traits_system_title"},
+				{id = "MAX_SPAWN_TRAITS", type = "track", val = 2, min = 1, max = 10, step = 1, def = 2},
+				{id = "TRAITS_SPAWN_CHANCE_stash", type = "track", val = 2, min = 0, max = 100, step = 1, def = 8, str_format = str_format_prec},
+				{id = "TRAITS_SPAWN_CHANCE_stalker", type = "track", val = 2, min = 0, max = 100, step = 1, def = 8, str_format = str_format_prec},
+				{id = "TRAITS_SPAWN_CHANCE_mutant", type = "track", val = 2, min = 0, max = 100, step = 1, def = 8, str_format = str_format_prec},
+				{id = "divider", type = "line"},
+
+				{id = "xp_comp_desc", type = "desc", text = "ui_exp_Main_xp_comp_desc", clr = {255,153,255,255}},
+				{id = "ENABLE_COMP_XP", type = "check", val = 1, def = true},
+				{id = "REDUCE_COMP_XP", type = "track", val = 2, min = 5, max = 25, step = 5, def = 10, str_format = "-" .. str_format_prec},
+				{id = "divider", type = "line"},
+
+				{id = "UNLOCK_CONSOLE", type = "check", val = 1, def = false},
+				{id = "divider", type = "line"},
+			}
+		},
+		{
+			id = "XP", sh = true, gr = {
+				{id = "title", type = "slide", link = "ui_experience_option_slider_swamp", text = "ui_exp_XP_title", size = {458,50}, spacing = 10},
+				{id = "xps_level_up_desc", type = "desc", text = "ui_exp_XP_xps_level_up_descr", clr = {255,153,255,255}},
+				{id = "LEVEL_UP_BASE",	type = "input", val = 2, min = 1, max = 100000, def = 550, round = true},
+				{id = "LEVEL_UP_MULT",	type = "input", val = 2, min = 1, max = 100000, def = 150, round = true},
+				{id = "divider", type = "line"},
+	
+				{id = "stalkers_xp_title", type = "title", text = "ui_exp_XP_stalkers_xp_title"},
+				{id = "stalker",	type = "input", val = 2, min = 1, max = 10000, def = 22, round = true},
+				{id = "bandit",		type = "input", val = 2, min = 1, max = 10000, def = 20, round = true},
+				{id = "csky",		type = "input", val = 2, min = 1, max = 10000, def = 22, round = true},
+				{id = "army",		type = "input", val = 2, min = 1, max = 10000, def = 28, round = true},
+				{id = "freedom",	type = "input", val = 2, min = 1, max = 10000, def = 26, round = true},
+				{id = "dolg",		type = "input", val = 2, min = 1, max = 10000, def = 27, round = true},
+				{id = "ecolog",		type = "input", val = 2, min = 1, max = 10000, def = 18, round = true},
+				{id = "killer",		type = "input", val = 2, min = 1, max = 10000, def = 31, round = true},
+				{id = "monolith",	type = "input", val = 2, min = 1, max = 10000, def = 32, round = true},
+				{id = "greh",		type = "input", val = 2, min = 1, max = 10000, def = 24, round = true},
+				{id = "renegade",	type = "input", val = 2, min = 1, max = 10000, def = 20, round = true},
+				{id = "isg",		type = "input", val = 2, min = 1, max = 10000, def = 33, round = true},
+				{id = "zombied",	type = "input", val = 2, min = 1, max = 10000, def = 16, round = true},
+				{id = "divider", type = "line"},
+				
+				{id = "stalkers_rank_mult_title", type = "title", text = "ui_exp_XP_stalkers_rank_mult_title"},
+				{id = "novice",			type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 1.0, str_format = str_format_mult},
+				{id = "trainee",		type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 1.30, str_format = str_format_mult},
+				{id = "experienced",	type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 1.60, str_format = str_format_mult},
+				{id = "professional", 	type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 1.90, str_format = str_format_mult},
+				{id = "veteran",		type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 2.20, str_format = str_format_mult},
+				{id = "expert",			type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 2.50, str_format = str_format_mult},
+				{id = "master",			type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 2.80, str_format = str_format_mult},
+				{id = "legend",			type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 3.25, str_format = str_format_mult},
+				{id = "divider", type = "line"},
+				
+				{id = "mutants_xp_title", type = "title", text = "ui_exp_XP_mutants_xp_title"},
+				{id = "bloodsucker",	type = "input", val = 2, min = 1, max = 10000, def = 54, round = true},
+				{id = "boar",			type = "input", val = 2, min = 1, max = 10000, def = 22, round = true},
+				{id = "burer",			type = "input", val = 2, min = 1, max = 10000, def = 69, round = true},
+				{id = "chimera",		type = "input", val = 2, min = 1, max = 10000, def = 118, round = true},
+				{id = "controller",		type = "input", val = 2, min = 1, max = 10000, def = 76, round = true},
+				{id = "dog",			type = "input", val = 2, min = 1, max = 10000, def = 17, round = true},
+				{id = "flesh",			type = "input", val = 2, min = 1, max = 10000, def = 16, round = true},
+				{id = "gigant",			type = "input", val = 2, min = 1, max = 10000, def = 98, round = true},
+				{id = "poltergeist",	type = "input", val = 2, min = 1, max = 10000, def = 58, round = true},
+				{id = "pyrogeist",		type = "input", val = 2, min = 1, max = 10000, def = 73, round = true},
+				{id = "pseudogeist",	type = "input", val = 2, min = 1, max = 10000, def = 92, round = true},
+				{id = "psy_dog",		type = "input", val = 2, min = 1, max = 10000, def = 59, round = true},
+				{id = "pseudodog",		type = "input", val = 2, min = 1, max = 10000, def = 31, round = true},
+				{id = "snork",			type = "input", val = 2, min = 1, max = 10000, def = 45, round = true},
+				{id = "tushkano",		type = "input", val = 2, min = 1, max = 10000, def = 6, round = true},
+				{id = "cat",			type = "input", val = 2, min = 1, max = 10000, def = 18, round = true},
+				{id = "fracture",		type = "input", val = 2, min = 1, max = 10000, def = 23, round = true},
+				{id = "zombie",			type = "input", val = 2, min = 1, max = 10000, def = 13, round = true},
+				{id = "karlik",			type = "input", val = 2, min = 1, max = 10000, def = 65, round = true},
+				{id = "psysucker",		type = "input", val = 2, min = 1, max = 10000, def = 63, round = true},
+				{id = "lurker",			type = "input", val = 2, min = 1, max = 10000, def = 42, round = true},
+				{id = "divider", type = "line"},
+				
+				{id = "mutants_rank_mult_title", type = "title", text = "ui_exp_XP_mutants_rank_mult_title"},
+				{id = "weak",			type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 0.8, str_format = str_format_mult},
+				{id = "normal",			type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 1.0, str_format = str_format_mult},
+				{id = "strong",			type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 1.2, str_format = str_format_mult},
+				{id = "divider", type = "line"},
+				
+				{id = "task_xp_title", type = "title", text = "ui_exp_XP_task_xp_title"},
+				{id = "TASK_XP", type = "input", val = 2, min = 1, max = 10000, def = 140, round = true},
+				{id = "TASK_XP_MULT", type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 1.7, str_format = str_format_mult},
+				{id = "divider", type = "line"},
+
+				{id = "stash_xp_title", type = "title", text = "ui_exp_XP_stash_xp_title"},
+				{id = "STASH_XP", type = "input", val = 2, min = 1, max = 10000, def = 21, round = true},
+				{id = "divider", type = "line"},
+				
+				{id = "discover_spot_xp_title", type = "title", text = "ui_exp_XP_discover_spot_xp_title"},
+				{id = "DISCOVER_SPOT_XP", type = "input", val = 2, min = 1, max = 10000, def = 18, round = true},
+				{id = "divider", type = "line"},
+				
+				{id = "disassembly_xp_title", type = "title", text = "ui_exp_XP_disassembly_xp_title"},
+				{id = "DISASSEMBLY_WPN_XP", type = "input", val = 2, min = 1, max = 10000, def = 3, round = true},
+				{id = "DISASSEMBLY_OUT_XP", type = "input", val = 2, min = 1, max = 10000, def = 2, round = true},
+				{id = "DISASSEMBLY_ITM_XP", type = "input", val = 2, min = 1, max = 10000, def = 1, round = true},
+				{id = "divider", type = "line"},
+				
+				{id = "mutant_loot_xp_title", type = "title", text = "ui_exp_XP_mutant_loot_xp_title"},
+				{id = "MUTANT_LOOT_XP", type = "input", val = 2, min = 1, max = 10000, def = 2, round = true},
+				{id = "divider", type = "line"},
+				
+				{id = "repair_xp_title", type = "title", text = "ui_exp_XP_repair_xp_title"},
+				{id = "repair_xp_descr", type = "desc", text = "ui_exp_XP_repair_xp_descr"},
+				{id = "REPAIR_ITM_XP", type = "input", val = 2, min = 1, max = 10000, def = 1, round = true},
+				{id = "divider", type = "line"},
+				
+				{id = "cooking_xp_title", type = "title", text = "ui_exp_XP_cooking_xp_title"},
+				{id = "COOKING_XP", type = "input", val = 2, min = 1, max = 10000, def = 5, round = true},
+				{id = "divider", type = "line"},
+				
+				{id = "workshop_xp_title", type = "title", text = "ui_exp_XP_workshop_xp_title"},
+				{id = "WORKSHOP_CRAFT_XP",		type = "input", val = 2, min = 1, max = 10000, def = 5, round = true},
+				{id = "WORKSHOP_REPAIR_XP",		type = "input", val = 2, min = 1, max = 10000, def = 4, round = true},
+				{id = "WORKSHOP_UPGRADE_XP",	type = "input", val = 2, min = 1, max = 10000, def = 4, round = true},
+				{id = "divider", type = "line"},
+				
+				{id = "art_xp_title", type = "title", text = "ui_exp_XP_art_xp_title"},
+				{id = "ART_XP",	type = "input", val = 2, min = 1, max = 10000, def = 58, round = true},
+				{id = "ART_XP_MULT_RANK_0", type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 0.5, str_format = str_format_mult},
+				{id = "ART_XP_MULT_RANK_1", type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 1.0, str_format = str_format_mult},
+				{id = "ART_XP_MULT_RANK_2", type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 1.3, str_format = str_format_mult},
+				{id = "ART_XP_MULT_RANK_3", type = "track", val = 2, min = 0.05, max = 10, step = 0.05, def = 1.6, str_format = str_format_mult},
+				{id = "divider", type = "line"},
+				
+				{id = "haru_skills_xp_title", type = "title", text = "ui_exp_XP_haru_skills_xp_title", precondition = {haru_skills_precond}},
+				{id = "haru_skills_xp_descr", type = "desc", text = "ui_exp_XP_haru_skills_xp_descr", precondition = {haru_skills_precond}},
+				{id = "HARU_SKILLS_XP", type = "input", val = 2, min = 1, max = 10000, def = 1, round = true, precondition = {haru_skills_precond}},
+				{id = "divider", type = "line", precondition = {haru_skills_precond}},
+
+				{id = "location_xp_mult_title", type = "title", text = "ui_exp_XP_location_xp_mult_title"},
+				{id = "location_xp_mult_descr", type = "desc", text = "ui_exp_XP_location_xp_mult_descr"},
+				{id = "LOC_MULT_fake_start",			type = "track", hint = "options_hint_fake_start",				val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_k00_marsh",				type = "track", hint = "options_hint_k00_marsh",				val = 2, min = -1, max = 1, step = 0.05, def = -0.2,	lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l01_escape",			type = "track", hint = "options_hint_l01_escape",				val = 2, min = -1, max = 1, step = 0.05, def = -0.2,	lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_k01_darkscape",			type = "track", hint = "options_hint_k01_darkscape",			val = 2, min = -1, max = 1, step = 0.05, def = -0.2,	lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_y04_pole",				type = "track", hint = "options_hint_y04_pole",					val = 2, min = -1, max = 1, step = 0.05, def = -0.2,	lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l02_garbage",			type = "track", hint = "options_hint_l02_garbage",				val = 2, min = -1, max = 1, step = 0.05, def = -0.1,	lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l03_agroprom",			type = "track", hint = "options_hint_l03_agroprom",				val = 2, min = -1, max = 1, step = 0.05, def = -0.1,	lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l04_darkvalley",		type = "track", hint = "options_hint_l04_darkvalley",			val = 2, min = -1, max = 1, step = 0.05, def = -0.1,	lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l05_bar",				type = "track", hint = "options_hint_l05_bar",					val = 2, min = -1, max = 1, step = 0.05, def = -0.1,	lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l06_rostok",			type = "track", hint = "options_hint_l06_rostok",				val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_k02_trucks_cemetery",	type = "track", hint = "options_hint_k02_trucks_cemetery",		val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l08_yantar",			type = "track", hint = "options_hint_l08_yantar",				val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l07_military",			type = "track", hint = "options_hint_l07_military",				val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l09_deadcity",			type = "track", hint = "options_hint_l09_deadcity",				val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l10_red_forest",		type = "track", hint = "options_hint_l10_red_forest",			val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l10_radar",				type = "track", hint = "options_hint_l10_radar",				val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l10_limansk",			type = "track", hint = "options_hint_l10_limansk",				val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l11_pripyat",			type = "track", hint = "options_hint_l11_pripyat",				val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_pripyat",				type = "track", hint = "options_hint_pripyat",					val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_jupiter",				type = "track", hint = "options_hint_jupiter",					val = 2, min = -1, max = 1, step = 0.05, def = 0.1,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_zaton",					type = "track", hint = "options_hint_zaton",					val = 2, min = -1, max = 1, step = 0.05, def = 0.1,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l11_hospital",			type = "track", hint = "options_hint_l11_hospital",				val = 2, min = -1, max = 1, step = 0.05, def = 0.1,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l12_stancia",			type = "track", hint = "options_hint_l12_stancia",				val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l12_stancia_2",			type = "track", hint = "options_hint_l12_stancia_2",			val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l13_generators",		type = "track", hint = "options_hint_l13_generators",			val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l03u_agr_underground",	type = "track", hint = "options_hint_l03u_agr_underground",		val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_jupiter_underground",	type = "track", hint = "options_hint_jupiter_underground",		val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l08u_brainlab",			type = "track", hint = "options_hint_l08u_brainlab",			val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l04u_labx18",			type = "track", hint = "options_hint_l04u_labx18",				val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l10u_bunker",			type = "track", hint = "options_hint_l10u_bunker",				val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_labx8",					type = "track", hint = "options_hint_labx8",					val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l12u_control_monolith",	type = "track", hint = "options_hint_l12u_control_monolith",	val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l13u_warlab",			type = "track", hint = "options_hint_l13u_warlab",				val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1},
+				{id = "LOC_MULT_l12u_sarcofag",			type = "track", hint = "options_hint_l12u_sarcofag",			val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1},
+
+				-- New Levels Patch
+				{id = "LOC_MULT_promzona",				type = "track", hint = "options_hint_promzona",					val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1, precondition = {new_levels_mod_precond}},
+				{id = "LOC_MULT_grimwood",				type = "track", hint = "options_hint_grimwood",					val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1, precondition = {new_levels_mod_precond}},
+				{id = "LOC_MULT_poselok_ug",			type = "track", hint = "options_hint_poselok_ug",				val = 2, min = -1, max = 1, step = 0.05, def = 0,		lerp_clr = lerp_clr_1, precondition = {new_levels_mod_precond}},
+				{id = "LOC_MULT_bunker_a1",				type = "track", hint = "options_hint_bunker_a1",				val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1, precondition = {new_levels_mod_precond}},
+				{id = "LOC_MULT_collaider",				type = "track", hint = "options_hint_collaider",				val = 2, min = -1, max = 1, step = 0.05, def = 0.2,		lerp_clr = lerp_clr_1, precondition = {new_levels_mod_precond}},
+				-- New Levels Patch END
+
+				{id = "divider", type = "line"},
+			}
+		},
+		{
+			id = "UI", sh = true, gr = {
+				{id = "title", type = "title", text = "ui_exp_UI_title"},
+				{id = "MENU_BACKGROUND", type = "image_list", val = 2, no_str = true, def = 1, link = "ui_experience_background_screen_", size = {430,340}, content = {
+					{1, "Style 1"},
+					{2, "Style 2"},
+					{3, "Style 3"},
+					{4, "Style 4"},
+					{5, "Style 5"},
+					{6, "Style 6"},
+				}},
+				{id = "divider", type = "line"},
+
+				{id = "general_ui_option_title", type = "title", text = "ui_exp_UI_general_ui_option_title"},
+				{id = "OPEN_UI_ANIMATION", type = "check", val = 1, def = true},
+				{id = "ENABLE_UI_PP_FX", type = "check", val = 1, def = true},
+				{id = "SHOW_ALL_SKILLS", type = "check", val = 1, def = true},
+				{id = "SKILL_LEARN_DELAY", type = "track", val = 2, min = 0.1, max = 2, step = 0.1, def = 0.5, str_format = "%s sec."},
+				{id = "UI_SOUND_VOLUME", type = "track", val = 2, min = 0, max = 1, step = 0.1, def = 1},
+				{id = "MENU_MUSIC_VOLUME", type = "track", val = 2, min = 0, max = 1, step = 0.1, def = 1},
+				{id = "MENU_MUSIC_TRACK", type = "list", val = 0, no_str = true, def = "music_anomaly_def", content = {
+					{"any",						"<RANDOM CHOICE>"},
+					{"music_anomaly_def",		"Anomaly Menu Theme"},
+					{"music_soc_def",			"Shadow Of Chernobyl Menu Theme"},
+					{"music_wol_and_hor",		"Wolves and Horses - Procession"},
+					{"music_misery_1",			"MISERY Theme 1"},
+					{"music_misery_2",			"MISERY Theme 2"},
+					{"music_metro_2033_1",		"Metro 2033 Theme"},
+					{"music_metro_exodus_1",	"Metro Exodus Theme"},
+					{"music_cod_ww_1",			"COD World War Theme"},
+					{"music_atomic_heart_nora",	"Atomic Heart Nora Theme"},
+					{"music_doom_eternal_1",	"DOOM Eternal - Cultist Base"},
+					{"music_doom_eternal_2",	"DOOM Eternal - BFG Division"},
+				}},
+				{id = "divider", type = "line"},
+
+				{id = "alerts_title", type = "title", text = "ui_exp_UI_alerts_title"},
+				{id = "ALERTS_TYPE", type = "radio_h", val = 2, no_str = true, def = 1, content = {
+					{0,	"ui_exp_UI_ALERTS_TYPE_DEF"},
+					{1,	"ui_exp_UI_ALERTS_TYPE_APM"},
+				}},
+				{id = "ENABLE_XP_ALERTS", type = "check", val = 1, def = true},
+				{id = "XP_ALERTS_VOLUME", type = "track", val = 2, min = 0, max = 1, step = 0.1, def = 1},
+				{id = "XP_ALERTS_SOUND", type = "list", val = 2, no_str = true, def = 4, on_select = xp_alert_sound_on_select, content = {
+					{1,	"Style 1"},
+					{2,	"Style 2"},
+					{3,	"Style 3"},
+					{4,	"Style 4"},
+					{5,	"Style 5"},
+				}},
+				{id = "ENABLE_LVLUP_ALERTS", type = "check", val = 1, def = true},
+				{id = "LVLUP_ALERTS_VOLUME", type = "track", val = 2, min = 0, max = 1, step = 0.1, def = 1},
+				{id = "LVLUP_ALERTS_SOUND", type = "list", val = 2, no_str = true, def = 5, on_select = levelup_alert_sound_on_select, content = {
+					{1,	"Style 1"},
+					{2,	"Style 2"},
+					{3,	"Style 3"},
+					{4,	"Style 4"},
+					{5,	"Style 5"},
+				}},
+				{id = "divider", type = "line"},
+			}
+		},
+        {
+            id = "Traits", sh = true, gr = {
+                {id = "title", type = "title", text = "ui_exp_menu_Traits"},
+                {id = "ALL_SLOTS_OPEN", type = "check", val = 1, def = true},
+            }
+        },
+		{
+			id = "Tasks", sh = true, gr = {
+				{id = "title", type = "slide", link = "ui_experience_option_slider_shishiga", text = "ui_exp_Tasks_title", size = {458,50}, spacing = 10},
+				{id = "tasks_desc", type = "desc", text = "ui_exp_Tasks_tasks_desc", clr = {255,153,255,255}},
+				{id = "divider", type = "line"},
+
+				{id = "ENABLE_TASKS", type = "check", val = 1, def = true},
+                {id = "COUNT_BY_PRESTIGE", type = "check", val = 1, def = false, precondition = {tasks_manager_precond}},
+                {id = "FIXED_TASK_COUNT", type = "track", val = 2, min = 1, max = 12, step = 1, def = 4, precondition = {tasks_manager_precond}},
+                {id = "fixed_task_count_desc", type = "desc", text = "arpg_fixed_task_count_desc", precondition = {tasks_manager_precond}},
+				{id = "SEND_NEWS", type = "check", val = 1, def = true, precondition = {tasks_manager_precond}},
+				{id = "AUTOCOMPLETE", type = "check", val = 1, def = false, precondition = {tasks_manager_precond}},
+				{id = "REFRESH_TIME", type = "track", val = 2, min = 4, max = 144, step = 1, def = 24, precondition = {tasks_manager_precond}},
+				{id = "REWARDS_TYPE", type = "list", val = 0, no_str = true, def = "all", precondition = {tasks_manager_precond}, content = {
+					{"all",		"ui_exp_Tasks_REWARDS_TYPE_ALL"},
+					{"money",	"ui_exp_Tasks_REWARDS_TYPE_MONEY"},
+					{"exp",		"ui_exp_Tasks_REWARDS_TYPE_EXP"},
+				}},
+				{id = "divider", type = "line"},
+
+				{id = "FORCE_REFRESH", type = "button", functor_ui = {force_refresh_tasks}, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "tasks_options_title", type = "title", text = "ui_exp_Tasks_tasks_options_title", align = "c", precondition = {tasks_manager_precond}},
+				{id = "tasks_options_desc", type = "desc", text = "ui_exp_Tasks_tasks_options_desc", precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_kill_stalkers_reward_title", precondition = {tasks_manager_precond}},
+				{id = "kill_stalkers_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 500, round = true, precondition = {tasks_manager_precond}},
+				{id = "kill_stalkers_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 25, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_kill_mutants_reward_title", precondition = {tasks_manager_precond}},
+				{id = "kill_mutants_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 400, round = true, precondition = {tasks_manager_precond}},
+				{id = "kill_mutants_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 20, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_find_stashes_reward_title", precondition = {tasks_manager_precond}},
+				{id = "find_stashes_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 250, round = true, precondition = {tasks_manager_precond}},
+				{id = "find_stashes_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 15, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_find_artefacts_reward_title", precondition = {tasks_manager_precond}},
+				{id = "find_artefacts_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 900, round = true, precondition = {tasks_manager_precond}},
+				{id = "find_artefacts_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 45, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_complete_tasks_reward_title", precondition = {tasks_manager_precond}},
+				{id = "complete_tasks_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 2400, round = true, precondition = {tasks_manager_precond}},
+				{id = "complete_tasks_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 80, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_craft_items_reward_title", precondition = {tasks_manager_precond}},
+				{id = "craft_items_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 600, round = true, precondition = {tasks_manager_precond}},
+				{id = "craft_items_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 15, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_cooking_foods_reward_title", precondition = {tasks_manager_precond}},
+				{id = "cooking_foods_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 600, round = true, precondition = {tasks_manager_precond}},
+				{id = "cooking_foods_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 15, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_kill_gigant_reward_title", precondition = {tasks_manager_precond}},
+				{id = "kill_gigant_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 4500, round = true, precondition = {tasks_manager_precond}},
+				{id = "kill_gigant_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 130, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_kill_chimera_reward_title", precondition = {tasks_manager_precond}},
+				{id = "kill_chimera_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 5000, round = true, precondition = {tasks_manager_precond}},
+				{id = "kill_chimera_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 150, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_kill_burer_reward_title", precondition = {tasks_manager_precond}},
+				{id = "kill_burer_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 2800, round = true, precondition = {tasks_manager_precond}},
+				{id = "kill_burer_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 90, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_kill_poltergeist_reward_title", precondition = {tasks_manager_precond}},
+				{id = "kill_poltergeist_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 2200, round = true, precondition = {tasks_manager_precond}},
+				{id = "kill_poltergeist_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 70, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_kill_exp_stalkers_reward_title", precondition = {tasks_manager_precond}},
+				{id = "kill_exp_stalkers_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 1200, round = true, precondition = {tasks_manager_precond}},
+				{id = "kill_exp_stalkers_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 50, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_kill_zombie_reward_title", precondition = {tasks_manager_precond}},
+				{id = "kill_zombie_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 350, round = true, precondition = {tasks_manager_precond}},
+				{id = "kill_zombie_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 20, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_kill_controller_reward_title", precondition = {tasks_manager_precond}},
+				{id = "kill_controller_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 3000, round = true, precondition = {tasks_manager_precond}},
+				{id = "kill_controller_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 95, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_disassembly_items_reward_title", precondition = {tasks_manager_precond}},
+				{id = "disassembly_items_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 150, round = true, precondition = {tasks_manager_precond}},
+				{id = "disassembly_items_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 10, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_repair_items_reward_title", precondition = {tasks_manager_precond}},
+				{id = "repair_items_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 400, round = true, precondition = {tasks_manager_precond}},
+				{id = "repair_items_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 15, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_looting_mutants_reward_title", precondition = {tasks_manager_precond}},
+				{id = "looting_mutants_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 200, round = true, precondition = {tasks_manager_precond}},
+				{id = "looting_mutants_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 15, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_kill_high_level_stalkers_reward_title", precondition = {tasks_manager_precond}},
+				{id = "kill_high_level_stalkers_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 1500, round = true, precondition = {tasks_manager_precond}},
+				{id = "kill_high_level_stalkers_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 70, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+
+				{id = "reward_title", type = "title", text = "ui_exp_Tasks_kill_high_level_mutants_reward_title", precondition = {tasks_manager_precond}},
+				{id = "kill_high_level_mutants_money", type = "input", hint = "Tasks_TASK_REWARD_MONEY", val = 2, min = 1, max = 100000, def = 1400, round = true, precondition = {tasks_manager_precond}},
+				{id = "kill_high_level_mutants_exp", type = "input", hint = "Tasks_TASK_REWARD_EXP", val = 2, min = 1, max = 10000, def = 65, round = true, precondition = {tasks_manager_precond}},
+				{id = "divider", type = "line", precondition = {tasks_manager_precond}},
+			}
+		},
+		{
+			id = "NLS", sh = true, gr = {
+				{id = "title", type = "slide", link = "ui_experience_option_slider_npp", text = "ui_exp_NLS_title", size = {458,50}, spacing = 10},
+				{id = "desc", type = "desc", text = "ui_exp_NLS_diff_level_desc"},
+				{id = "divider", type = "line"},
+				{id = "DIFF_LEVEL_STAGE", type = "track", val = 2, min = 1, max = 30, step = 1, def = 5},
+				{id = "divider", type = "line"},
+				{id = "ENABLE_EXP_SYS", type = "check", val = 1, def = false},
+				{id = "DIFF_LEVEL_STAGE_EXP_MULT", type = "track", val = 2, min = 1, max = 50, step = 1, def = 20, str_format = str_format_prec},
+				{id = "divider", type = "line"},
+				{id = "ENABLE_DMG_SYS", type = "check", val = 1, def = false},
+				{id = "DIFF_LEVEL_STAGE_DMG_MULT", type = "track", val = 2, min = 1, max = 50, step = 1, def = 8, str_format = str_format_prec},
+				{id = "divider", type = "line"},
+
+				{id = "ENABLE_TARGET_HUD", type = "check", val = 1, def = false},
+				{id = "SHOW_FAKE_HEALTH", type = "check", val = 1, def = false},
+				{id = "HUD_FADE_TIME", type = "track", val = 2, min = 0.5, max = 10, step = 0.5, def = 2, str_format = "%s sec."},
+				{id = "TARGET_HUD_DISPLAY_MODE", type = "radio_h", val = 2, no_str = true, def = 1, content = {
+					{1,	"ui_exp_NLS_TARGET_HUD_DISPLAY_MODE_always"},
+					{2,	"ui_exp_NLS_TARGET_HUD_DISPLAY_MODE_combat"},
+				}},
+				{id = "TARGET_HUD_NAME_MODE", type = "list", val = 2, no_str = true, def = 4, content = {
+					{1,	"ui_exp_NLS_TARGET_HUD_NAME_MODE_none"},
+					{2,	"ui_exp_NLS_TARGET_HUD_NAME_MODE_name"},
+					{3,	"ui_exp_NLS_TARGET_HUD_NAME_MODE_lvl"},
+					{4,	"ui_exp_NLS_TARGET_HUD_NAME_MODE_lvlname"},
+				}},
+				{id = "divider", type = "line"},
+				{id = "position_desc", type = "desc", text = "ui_exp_NLS_hud_position_desc", precondition = {target_hud_precond}},
+				{id = "CHANGE_POSITION", type = "button", functor_ui = {change_target_hud_position}, precondition = {target_hud_precond}},
+				{id = "RESET_POSITION", type = "button", functor_ui = {reset_target_hud_position}, precondition = {target_hud_precond}},
+				{id = "divider", type = "line", precondition = {target_hud_precond}},
+
+				{id = "locations_desc", type = "desc", text = "ui_exp_NLS_locations_desc", clr = {255,153,255,255}},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_fake_start"},
+				{id = "base_lvl_fake_start_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 1},
+				{id = "base_lvl_fake_start_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 55},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_k00_marsh"},
+				{id = "base_lvl_k00_marsh_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 1},
+				{id = "base_lvl_k00_marsh_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 15},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l01_escape"},
+				{id = "base_lvl_l01_escape_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 1},
+				{id = "base_lvl_l01_escape_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 15},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_k01_darkscape"},
+				{id = "base_lvl_k01_darkscape_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 5},
+				{id = "base_lvl_k01_darkscape_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 20},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_y04_pole"},
+				{id = "base_lvl_y04_pole_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 5},
+				{id = "base_lvl_y04_pole_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 20},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l02_garbage"},
+				{id = "base_lvl_l02_garbage_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 5},
+				{id = "base_lvl_l02_garbage_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 25},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l03_agroprom"},
+				{id = "base_lvl_l03_agroprom_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 10},
+				{id = "base_lvl_l03_agroprom_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 30},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l04_darkvalley"},
+				{id = "base_lvl_l04_darkvalley_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 10},
+				{id = "base_lvl_l04_darkvalley_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 30},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l05_bar"},
+				{id = "base_lvl_l05_bar_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 15},
+				{id = "base_lvl_l05_bar_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 40},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l06_rostok"},
+				{id = "base_lvl_l06_rostok_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 20},
+				{id = "base_lvl_l06_rostok_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 35},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_k02_trucks_cemetery"},
+				{id = "base_lvl_k02_trucks_cemetery_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 15},
+				{id = "base_lvl_k02_trucks_cemetery_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 35},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l08_yantar"},
+				{id = "base_lvl_l08_yantar_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 20},
+				{id = "base_lvl_l08_yantar_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 35},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l07_military"},
+				{id = "base_lvl_l07_military_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 20},
+				{id = "base_lvl_l07_military_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 40},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l09_deadcity"},
+				{id = "base_lvl_l09_deadcity_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 20},
+				{id = "base_lvl_l09_deadcity_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 40},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l10_red_forest"},
+				{id = "base_lvl_l10_red_forest_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 25},
+				{id = "base_lvl_l10_red_forest_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 45},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l10_radar"},
+				{id = "base_lvl_l10_radar_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 25},
+				{id = "base_lvl_l10_radar_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 45},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l10_limansk"},
+				{id = "base_lvl_l10_limansk_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 25},
+				{id = "base_lvl_l10_limansk_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 45},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l11_pripyat"},
+				{id = "base_lvl_l11_pripyat_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 30},
+				{id = "base_lvl_l11_pripyat_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 45},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_pripyat"},
+				{id = "base_lvl_pripyat_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 30},
+				{id = "base_lvl_pripyat_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 45},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_jupiter"},
+				{id = "base_lvl_jupiter_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 30},
+				{id = "base_lvl_jupiter_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 45},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_zaton"},
+				{id = "base_lvl_zaton_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 30},
+				{id = "base_lvl_zaton_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 50},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l11_hospital"},
+				{id = "base_lvl_l11_hospital_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 35},
+				{id = "base_lvl_l11_hospital_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 50},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l12_stancia"},
+				{id = "base_lvl_l12_stancia_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 40},
+				{id = "base_lvl_l12_stancia_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 55},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l12_stancia_2"},
+				{id = "base_lvl_l12_stancia_2_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 40},
+				{id = "base_lvl_l12_stancia_2_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 55},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l13_generators"},
+				{id = "base_lvl_l13_generators_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 45},
+				{id = "base_lvl_l13_generators_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 60},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l03u_agr_underground"},
+				{id = "base_lvl_l03u_agr_underground_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 15},
+				{id = "base_lvl_l03u_agr_underground_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 35},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_jupiter_underground"},
+				{id = "base_lvl_jupiter_underground_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 35},
+				{id = "base_lvl_jupiter_underground_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 50},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l08u_brainlab"},
+				{id = "base_lvl_l08u_brainlab_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 25},
+				{id = "base_lvl_l08u_brainlab_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 40},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l04u_labx18"},
+				{id = "base_lvl_l04u_labx18_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 15},
+				{id = "base_lvl_l04u_labx18_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 35},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l10u_bunker"},
+				{id = "base_lvl_l10u_bunker_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 30},
+				{id = "base_lvl_l10u_bunker_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 50},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_labx8"},
+				{id = "base_lvl_labx8_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 35},
+				{id = "base_lvl_labx8_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 50},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l12u_control_monolith"},
+				{id = "base_lvl_l12u_control_monolith_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 45},
+				{id = "base_lvl_l12u_control_monolith_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 65},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l13u_warlab"},
+				{id = "base_lvl_l13u_warlab_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 50},
+				{id = "base_lvl_l13u_warlab_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 70},
+				{id = "divider", type = "line"},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_l12u_sarcofag"},
+				{id = "base_lvl_l12u_sarcofag_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 50},
+				{id = "base_lvl_l12u_sarcofag_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 70},
+				{id = "divider", type = "line"},
+
+				-- New Levels Patch
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_promzona", precondition = {new_levels_mod_precond}},
+				{id = "base_lvl_promzona_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 20, precondition = {new_levels_mod_precond}},
+				{id = "base_lvl_promzona_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 40, precondition = {new_levels_mod_precond}},
+				{id = "divider", type = "line", precondition = {new_levels_mod_precond}},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_grimwood", precondition = {new_levels_mod_precond}},
+				{id = "base_lvl_grimwood_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 20, precondition = {new_levels_mod_precond}},
+				{id = "base_lvl_grimwood_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 40, precondition = {new_levels_mod_precond}},
+				{id = "divider", type = "line", precondition = {new_levels_mod_precond}},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_poselok_ug", precondition = {new_levels_mod_precond}},
+				{id = "base_lvl_poselok_ug_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 20, precondition = {new_levels_mod_precond}},
+				{id = "base_lvl_poselok_ug_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 40, precondition = {new_levels_mod_precond}},
+				{id = "divider", type = "line", precondition = {new_levels_mod_precond}},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_bunker_a1", precondition = {new_levels_mod_precond}},
+				{id = "base_lvl_bunker_a1_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 25, precondition = {new_levels_mod_precond}},
+				{id = "base_lvl_bunker_a1_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 45, precondition = {new_levels_mod_precond}},
+				{id = "divider", type = "line", precondition = {new_levels_mod_precond}},
+
+				{id = "locations_title", type = "title", text = "ui_exp_options_hint_collaider", precondition = {new_levels_mod_precond}},
+				{id = "base_lvl_collaider_min", hint = "NLS_level_loc_min", type = "track", val = 2, min = 1, max = 250, step = 1, def = 25, precondition = {new_levels_mod_precond}},
+				{id = "base_lvl_collaider_max", hint = "NLS_level_loc_max", type = "track", val = 2, min = 1, max = 250, step = 1, def = 45, precondition = {new_levels_mod_precond}},
+				{id = "divider", type = "line", precondition = {new_levels_mod_precond}},
+				-- New Levels Patch END
+			}
+		},
+		{
+			id = "IronmanRoguelite", sh = true, precondition = {ironman_roguelite_precond}, output = "ui_exp_IronmanRoguelite_not_installed", gr = {
+				{id = "title", type = "slide", link = "ui_experience_option_slider_anomalies", text = "ui_exp_IronmanRoguelite_title", size = {458,50}, spacing = 10},
+				{id = "desc", type = "desc", text = "ui_exp_IronmanRoguelite_desc"},
+				{id = "divider", type = "line"},
+				{id = "TRANSFER_PROGRESS", type = "check", val = 1, def = true},
+				{id = "divider", type = "line"},
+				{id = "RESTORE_SKILLS", type = "check", val = 1, def = true},
+				{id = "LOSS_PROGRESS", type = "track", val = 2, min = 0, max = 100, step = 1, def = 10, str_format = str_format_prec},
+				{id = "RESTORE_TRAITS", type = "check", val = 1, def = true},
+				{id = "divider", type = "line"},
+			}
+		}
+	}
+end
+
+local function init_other_options()
+	-- Search files with options
+	local t = {}
+	local flist = getFS():file_list_open_ex("$game_scripts$", bit_or(FS.FS_ListFiles, FS.FS_RootOnly), "*_exp.script")
+	local f_cnt = flist:Size()
+	for	it=0, f_cnt-1 do
+		local file = flist:GetAt(it)
+		local file_name = file:NameShort()
+		if file:Size() > 0 then
+			file_name = file_name:sub(0, file_name:len()-7)
+			if (_G[file_name] and _G[file_name].on_exp_load) then
+				table.insert(t, file_name)
+			end
+		end
+	end
+
+	-- Initialize options from finded files
+	local temp = {}
+	for i=1, #t do
+		local op, op_id = _G[ t[i] ].on_exp_load(temp)
+		if type(op) == "table" then
+			if (op_id and type(op_id) == "string" and op.id and op.gr) then
+				local index = nil
+				for k=1, #temp do
+					if temp[k].id == op_id then
+						index = k
+						break
+					end
+				end
+				if index ~= nil then
+					if not temp[index].sh then
+						table.insert(temp[index].gr, op)
+					else
+						experience_dbg.Write(1, "experience_options.init_other_options | Error: Attempt to add options to an incompatible section '%s' | Argument: 'sh' is exist.", temp[index].id)
+					end
+				else
+					local s = {id = op_id, gr = {}}
+					table.insert(s.gr, op)
+					table.insert(temp, s)
+				end
+
+			elseif (op.id and op.gr) then
+				table.insert(temp, op)
+			else
+				experience_dbg.Write(1, "experience_options.init_other_options | Error: Can't import options from '%s.script' | Bad arguments.", t[i])
+			end
+		elseif op ~= nil then
+			experience_dbg.Write(1, "experience_options.init_other_options | Error: Can't import options from '%s.script' | Bad argument #1 (table expected, got '%s').", t[i], type(op))
+		end
+	end
+
+	-- Import valid options
+	for _,op in spairs(temp, sort_option_func) do
+		table.insert(options, op)
+	end
+end
+
+function Get(id, def)
+	if opt_unknown[id] then
+		return def
+	end
+
+	if #options == 0 then
+		LoadOptions()
+	end
+
+    local value = ini_options:r_value(opt_section, id, opt_val[id])
+	if value ~= nil then
+		return value
+	end
+
+    local v = get_opt_table(id)
+	value = v.def
+    if value ~= nil then
+		Set(id, value)
+		return value
+    end
+
+	experience_dbg.Write(1, "Found nil option value [%s]", id)
+	opt_unknown[id] = true
+	return def
+end
+
+function Set(id, value)
+	if (opt_unknown[id] and value ~= nil) then
+		opt_unknown[id] = nil
+	end
+    ini_options:w_value(opt_section, id, value)
+    ini_options:save()
+end
+
+---------------------------------------------------------------------------------------
+function azazel_new_progpress_precond()
+	return gamemode_azazel.CAN_SEND_AZAZEL_CALLBACK and true or false
+end
+
+function haru_skills_precond()
+	return haru_skills ~= nil
+end
+
+function xp_alert_sound_on_select(key)
+	experience_sounds.Play("alert_gain_xp_" .. key, nil, opt_temp["UI/XP_ALERTS_VOLUME"] or Get("UI/XP_ALERTS_VOLUME"))
+end
+
+function levelup_alert_sound_on_select(key)
+	experience_sounds.Play("alert_level_up_" .. key, nil, opt_temp["UI/LVLUP_ALERTS_VOLUME"] or Get("UI/LVLUP_ALERTS_VOLUME"))
+end
+
+function tasks_manager_precond()
+	local tsk = experience_tasks.GetXPTasks()
+	return tsk and tsk:IsStarted()
+end
+
+function new_levels_mod_precond()
+	return zzzz_for_level_add ~= nil
+end
+
+function force_refresh_tasks(ui)
+	experience_tasks.GetXPTasks():Refresh()
+	ui:PlaySND("on_accept_1")
+	ui:SetMsg(game.translate_string("ui_experience_options_tasks_reloaded"), 5)
+end
+
+function target_hud_precond()
+	return experience_npcs.HUD ~= nil
+end
+
+function change_target_hud_position(ui)
+	ui.owner:CloseCurrentWindow(true)
+	ui.owner:Close()
+	experience_npcs.edit_target_hud()
+end
+
+function reset_target_hud_position(ui)
+	local hud = experience_npcs.HUD
+    local pos_x = experience_utils.ReadConfig("nls_target_hud", "pos_x_def", 2)
+    local pos_y = experience_utils.ReadConfig("nls_target_hud", "pos_y_def", 2)
+	if (pos_x and pos_y) then
+		experience_utils.WriteConfig("nls_target_hud", "pos_x", pos_x)
+        experience_utils.WriteConfig("nls_target_hud", "pos_y", pos_y)
+		if hud ~= nil then
+			hud:UpdatePosition(pos_x, pos_y)
+		end
+		ui:PlaySND("on_accept_1")
+		ui:SetMsg("Position Reset!", 5)
+	end
+end
+
+function ironman_roguelite_precond()
+	return roguelite_manager ~= nil
+end
+
+function delete_framework_func(ui)
+	ui.owner:CloseCurrentWindow(true)
+	ui.owner:Close()
+	experience_error.RemoveExperienceFramework()
+end
+---------------------------------------------------------------------------------------
+
+function sort_option_func(t,a,b)
+	return game.translate_string(opt_str_menu .. t[a].id) < game.translate_string(opt_str_menu .. t[b].id)
+end
+
+function sort_preset_func(t,a,b)
+	return game.translate_string(opt_str_prst .. a) < game.translate_string(opt_str_prst .. b)
+end
+
+function cc(path, opt)
+    return path .. _opt_ .. opt
+end
+
+function exec(func,...)
+	if not func then
+		return false
+	end
+	return func(...)
+end
+
+function path_opt_explode(id, by_index)
+	local path = by_index and opt_index[id] or id
+	local t = path and str_explode(path, _opt_) or {}
+
+	if by_index then
+		for i=1, #t do
+			t[i] = tonumber(t[i])
+		end
+	end
+
+	return t
+end
+
+function get_opt_table(id)
+	local t = path_opt_explode(id, true)
+	if #t == 0 then
+		return {}
+	end
+	
+	if #t == 1 then
+		return options[t[1]]
+	elseif #t == 2 then
+		return options[t[1]].gr[t[2]]
+	elseif #t == 3 then
+		return options[t[1]].gr[t[2]].gr[t[3]]
+	elseif #t == 4 then
+		return options[t[1]].gr[t[2]].gr[t[3]].gr[t[4]]
+	end
+end
+
+local is_loaded = false
+function LoadOptions()
+	if is_loaded then
+		return
+	end
+	is_loaded = true
+
+    empty_table(options)
+    empty_table(opt_val)
+    empty_table(opt_index)
+    init_base_options()
+	init_other_options()
+    local defaults = ini_file("experience_framework\\absolute_defaults.ltx")
+    local function apply_defaults(groups, prefix)
+        for _, v in ipairs(groups) do
+            local path = prefix == "" and v.id or prefix .. "/" .. v.id
+            if v.gr then
+                apply_defaults(v.gr, path)
+            elseif allowed_type[v.type] and defaults:line_exist("options", path) then
+                if v.val == 1 then
+                    v.def = defaults:r_bool("options", path)
+                elseif v.val == 2 then
+                    v.def = defaults:r_float("options", path)
+                else
+                    v.def = defaults:r_string("options", path)
+                end
+            end
+        end
+    end
+    apply_defaults(options, "")
+
+    local function deploy_options(id, gr, num)
+        local path
+        for i=1, #gr do
+            if allowed_type[gr[i].type] then
+                path = id .. _opt_ .. gr[i].id
+                opt_val[path] = gr[i].val
+                opt_index[path] = num .. _opt_ .. i
+            end
+        end
+    end
+
+    local id_1,id_2,id_3
+    for i=1, #options do
+        id_1 = options[i].id
+        if options[i].sh then
+            deploy_options(id_1, options[i].gr, i)
+        else
+            for ii=1, #options[i].gr do
+                id_2 = options[i].gr[ii].id
+                if options[i].gr[ii].sh then
+                    deploy_options(id_1 .. _opt_ .. id_2, options[i].gr[ii].gr, i .. _opt_ .. ii)
+                else
+                    for iii=1, #options[i].gr[ii].gr do
+                        id_3 = options[i].gr[ii].gr[iii].id
+                        if options[i].gr[ii].gr[iii].sh then
+                            deploy_options(id_1 .. _opt_ .. id_2 .. _opt_ .. id_3, options[i].gr[ii].gr[iii].gr, i .. _opt_ .. ii .. _opt_ .. iii)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if not ini_options:r_value("rpg_gamma_unified", "level300_v1", 1, false) then
+        if not ini_options:line_exist(opt_section, "Main/G_MAX_LEVEL") then
+            ini_options:w_value(opt_section, "Main/G_MAX_LEVEL", 150)
+        end
+        ini_options:w_value("rpg_gamma_unified", "level300_v1", true)
+        ini_options:save()
+    end
+
+end
+
+
+----------------------------------------------------
+GUI = nil
+function get_ui(owner, xml)
+    if GUI == nil then
+        GUI = UIExperienceOptions(owner, xml)
+    end
+    return GUI
+end
+----------------------------------------------------
+-- Class "UIExperienceOptions"
+----------------------------------------------------
+class "UIExperienceOptions" (CUIWindow)
+function UIExperienceOptions:__init(owner, xml) super()
+    self.owner = owner
+    self.xml = xml
+
+    self.tree = {}
+    self.tr_btn = {}
+    self.Cache = {
+        _Cap = {},
+		_Hint = {},
+        _Check = {},
+        _List = {},
+        _Input = {},
+        _Track = {},
+        _Radio = {},
+		_ImageList = {},
+		last_curr_tree = {},
+        last_path = nil
+    }
+    self.presets = {}
+    self.Save_INI = false
+	self.Change_Done = false
+
+	if #options == 0 then
+		LoadOptions()
+	end
+
+    self:InitControls()
+    self:InitCallBacks()
+    self:InitPresets()
+	self:Register_Tree(1, "", options)
+end
+
+function UIExperienceOptions:InitControls()
+    local xml = self.xml
+
+    self.dialog                                 = xml:InitStatic("options_wnd:main:frame", self)
+
+    self.btn_accept                             = xml:Init3tButton("options_wnd:main:btn_accept", self.dialog)
+    self:Register(self.btn_accept, "btn_accept")
+
+    self.btn_default                            = xml:Init3tButton("options_wnd:main:btn_default", self.dialog)
+    self:Register(self.btn_default, "btn_default")
+
+    self.btn_cancel                             = xml:Init3tButton("options_wnd:main:btn_cancel", self.dialog)
+    self:Register(self.btn_cancel, "btn_cancel")
+
+    self.scroll_opt                             = xml:InitScrollView("options_wnd:main:scroll", self.dialog)
+
+	self.presets_cap                          = xml:InitStatic("options_wnd:main:cap_presets", self.dialog)
+	self.lst_presets                          = experience_ui.UIComboBoxCustom(xml, "options_wnd:main:presets", self.dialog)
+    self.presets_cap:Show(false)
+	self.lst_presets:Show(false)
+
+    self.pending_text                           = xml:InitTextWnd("options_wnd:main:notify", self.dialog)
+end
+
+function UIExperienceOptions:InitCallBacks()
+	self:AddCallback("btn_accept",      ui_events.BUTTON_CLICKED,			self.OnButton_Accept,       self)
+	self:AddCallback("btn_default",     ui_events.BUTTON_CLICKED,			self.OnButton_Default,      self)
+	self:AddCallback("btn_cancel",      ui_events.BUTTON_CLICKED,			self.OnButton_Cancel,       self)
+	self.lst_presets:SetCallback(self.Callback_Preset, self)
+end
+
+function UIExperienceOptions:InitPresets()
+	local t = {}
+	ini_presets:section_for_each(function(section)
+		local result,path,value
+		local n = ini_presets:line_count(section)
+		for i=0, n-1 do
+			result, path, value = ini_presets:r_line_ex(section, i, "","")
+			if path and value and opt_val[path] then
+				local val
+				if opt_val[path] == 1 then
+					val = value == "true"
+				elseif opt_val[path] == 2 then
+					val = tonumber(value)
+				else
+					val = value
+				end
+				if val ~= nil then
+					if not t[section] then
+						t[section] = {}
+					end
+					t[section][path] = val
+				else
+					experience_dbg.Write(1, "UIExperienceOptions:InitPresets | Error: Incorrect value in preset. \\nPreset: %s \\nOption: %s \\nValue: %s", section, path, value)
+				end
+			end
+		end
+	end)
+
+	if is_not_empty(t) then
+		self.presets_cap:Show(true)
+		self.lst_presets:Show(true)
+		local num = 0
+		for sec, v in spairs(t, sort_preset_func) do
+			num = num + 1
+			self.presets[num] = v
+			self.lst_presets:AddItem(game.translate_string(opt_str_prst .. sec), num)
+		end
+	end
+end
+
+-- Called from experience_ui.UIExperienceMenu.Update
+function UIExperienceOptions:Update()
+	for id, e in pairs(self.Cache._Track) do
+		if e.ctrl:IsCursorOverWindow() then
+			local v = self:GetOption(id)
+			local value = round_idp(e.ctrl:GetFValue(), v.prec or precision)
+			if value ~= e.value then
+				e.value = value
+				self:Callback_Track(e.txt, e.path, e.opt, e.clr, v, value)
+				return
+			end
+		end
+	end
+end
+
+-- Called from experience_ui.UIExperienceMenu.ProcessHint
+function UIExperienceOptions:ProcessHint(hint_wnd)
+    for id, ctrl in pairs(self.Cache._Cap) do
+		if ctrl:IsCursorOverWindow() then
+			local str = opt_str .. (self.Cache._Hint[id] or id) .. "_desc"
+			local str_t = game.translate_string(str)
+			if str ~= str_t then
+				hint_wnd:Update(str_t)
+				return true
+			end
+			return false
+		end
+	end
+end
+
+-- Called from experience_ui.UIExperienceMenu.OnKeyboard
+function UIExperienceOptions:OnKeyboard(res, dik, keyboard_action)
+    if res == false then
+        if keyboard_action == ui_events.WINDOW_KEY_PRESSED then
+            if dik == DIK_keys.DIK_ESCAPE then
+				self:CloseWindow()
+            end
+        end
+    end
+end
+
+function UIExperienceOptions:CloseWindow(dont_play_sound)
+	self.owner:CloseCurrentWindow(dont_play_sound)
+end
+
+-- Called from experience_ui.UIExperienceMenu.CloseCurrentWindow
+function UIExperienceOptions:Close()
+	if is_not_empty(opt_temp) then
+		empty_table(opt_temp)
+		empty_table(opt_backup)
+	end
+	self:Show(false)
+end
+
+function UIExperienceOptions:Register(obj, id)
+    self.owner:Register(obj, "options_wnd_" .. id)
+end
+
+function UIExperienceOptions:AddCallback(id, action, functor, obj)
+    self.owner:AddCallback("options_wnd_" .. id, action, functor, obj)
+end
+
+function UIExperienceOptions:PlaySND(key)
+    self.owner:PlaySND(key)
+end
+
+function UIExperienceOptions:SetMsg(text, tmr, align)
+    self.owner:SetMsg(text, tmr, align)
+end
+
+function UIExperienceOptions:UpdateActorStats()
+    self.owner:UpdateActorStats()
+end
+
+function UIExperienceOptions:Reset()
+	if self.Cache.last_curr_tree and self.Cache.last_path then
+		self:Reset_opt(self.Cache.last_curr_tree, self.Cache.last_path)
+		self:UpdatePending()
+	end
+end
+
+function UIExperienceOptions:ClearCache()
+	self.scroll_opt:Clear()
+    empty_table(self.Cache._Cap)
+	empty_table(self.Cache._Hint)
+    empty_table(self.Cache._Check)
+    empty_table(self.Cache._List)
+    empty_table(self.Cache._Input)
+    empty_table(self.Cache._Track)
+    empty_table(self.Cache._Radio)
+	empty_table(self.Cache._ImageList)
+end
+
+function UIExperienceOptions:Reset_opt(curr_tree, path, flags)
+	flags = flags or {}
+	local xml = self.xml
+	self:ClearCache()
+
+	if curr_tree.precondition and (not exec(unpack(curr_tree.precondition))) then
+		if curr_tree.output then
+			local _txt = xml:InitTextWnd("options_wnd:elements:block", nil)
+			_txt:SetText(game.translate_string(curr_tree.output))
+			self.scroll_opt:AddWindow(_txt, true)
+			_txt:SetAutoDelete(false)
+		end
+		return
+	end
+
+    for i=1, #curr_tree.gr do
+		-- The PDA owns the background. Keep the legacy option in configuration
+        -- for cache/preset compatibility, but never construct its image preview.
+        local pda_background = path == "UI" and curr_tree.gr[i].id == "MENU_BACKGROUND"
+        local to_hide = pda_background or (curr_tree.gr[i].precondition and (not exec(unpack(curr_tree.gr[i].precondition))))
+
+		if not to_hide then
+			local opt = curr_tree.gr[i].id
+			local v = curr_tree.gr[i]
+			local _st = xml:InitStatic("options_wnd:main:st", nil)
+			local _h = 0
+	
+--------------- Support
+			if v.type == "line" then
+				_h = self:Register_Line(xml, _st)
+	
+			elseif v.type == "image" then
+				_h = self:Register_Image(xml, _st, v)
+	
+			elseif v.type == "slide" then
+				_h = self:Register_Slide(xml, _st, v)
+	
+			elseif v.type == "title" then
+				_h = self:Register_Title(xml, _st, v)
+	
+			elseif v.type == "desc" then
+				_h = self:Register_Desc(xml, _st, v)
+	
+--------------- Option
+			elseif v.type == "check" then
+				_h = self:Register_Check(xml, _st, path, opt, v, flags)
+	
+			elseif v.type == "button" then
+				_h = self:Register_Button(xml, _st, path, opt, v)
+	
+			elseif v.type == "list" then
+				_h = self:Register_List(xml, _st, path, opt, v, flags)
+	
+			elseif v.type == "input" then
+				_h = self:Register_Input(xml, _st, path, opt, v, flags)
+	
+			elseif v.type == "track" then
+				_h = self:Register_Track(xml, _st, path, opt, v, flags)
+	
+			elseif (v.type == "radio_h") then
+				_h = self:Register_Radio(xml, _st, path, opt, v, true, flags)
+	
+			elseif (v.type == "radio_v") then
+				_h = self:Register_Radio(xml, _st, path, opt, v, false, flags)
+
+			elseif (v.type == "image_list") then
+				_h = self:Register_ImageList(xml, _st, path, opt, v, flags)
+			end
+	
+			_st:SetWndSize(vector2():set(_st:GetWidth(), _h + 10))
+			self.scroll_opt:AddWindow(_st, true)
+			_st:SetAutoDelete(true)
+		end
+    end
+    if self.Save_INI then
+        self.Save_INI = false
+        ini_options:save()
+    end
+end
+
+function UIExperienceOptions:Register_Tree(tree_num, path, curr_tree)
+    local xml = self.xml
+
+    if not self.tree[tree_num] then
+        self.tree[tree_num] = {}
+    end
+
+    if not self.tree[tree_num][path] then
+		self.tree[tree_num][path] = xml:InitScrollView("options_wnd:main:tree_" .. tree_num, self.dialog)
+
+		if not self.tr_btn[tree_num] then
+			self.tr_btn[tree_num] = {}
+		end
+	
+		self.tr_btn[tree_num][path] = {}
+		for i=1, #curr_tree do
+			local _st = xml:InitStatic("options_wnd:main:st_tree", nil)
+	
+			self.tr_btn[tree_num][path][i] = xml:InitCheck("options_wnd:main:btn_tree", _st)
+			self.tr_btn[tree_num][path][i]:SetCheck(false)
+	
+			local text = xml:InitTextWnd("options_wnd:main:txt_btn_tree", _st)
+			text:SetText(game.translate_string(opt_str_menu .. curr_tree[i].id))
+			self.tree[tree_num][path]:AddWindow(_st, true)
+			_st:SetAutoDelete(false)
+		end
+	
+		for i=1, #self.tr_btn[tree_num][path] do
+			local path_i = (path ~= "") and cc(path, curr_tree[i].id) or curr_tree[i].id
+	
+			self:Register(self.tr_btn[tree_num][path][i], "tree_" .. path_i)
+			local _wrapper = function(handler)
+				self:Callback_Tree(tree_num, path_i, curr_tree[i], self.tr_btn[tree_num][path], i, true)
+			end
+			self:AddCallback(("tree_"..path_i), ui_events.BUTTON_CLICKED, _wrapper, self)
+		end
+	end
+
+	self.tree[tree_num][path]:Show(true)
+	self.tr_btn[tree_num][path][1]:SetCheck(true)
+	local path_1 = (path ~= "") and cc(path, curr_tree[1].id) or curr_tree[1].id
+	self:Callback_Tree(tree_num, path_1, curr_tree[1], self.tr_btn[tree_num][path], 1)
+end
+
+function UIExperienceOptions:Callback_Tree(tree_num, path, curr_tree, ctrl, i, play_sound)
+	if (ctrl[i]:GetCheck() == false) then
+		ctrl[i]:SetCheck(true)
+		return
+	end
+	for k=1, #ctrl do
+		if k ~= i then
+			ctrl[k]:SetCheck(false)
+		end
+	end
+
+    for k=tree_num+1, #self.tree do
+		for _,v in pairs(self.tree[k]) do
+			v:Show(false)
+		end
+	end
+
+    if #curr_tree.gr == 0 then
+		self:ClearCache()
+	elseif curr_tree.sh then
+		self:Reset_opt(curr_tree, path)
+
+		self.Cache.last_path = path
+		empty_table(self.Cache.last_curr_tree)
+		copy_table(self.Cache.last_curr_tree, curr_tree)
+	else
+		self:Register_Tree(tree_num+1, path, curr_tree.gr, i)
+	end
+
+	if play_sound then
+		self:PlaySND("menu_click_4")
+	end
+end
+
+------------------------------------------------------------
+-- Elements
+------------------------------------------------------------
+function UIExperienceOptions:Register_Cap(xml, handler, id, hint)
+	local id = s_gsub(id, _opt_, "_")
+	if hint then
+		self.Cache._Hint[id] = hint
+	end
+	self.Cache._Cap[id] = xml:InitStatic("options_wnd:elements:cap", handler)
+	self.Cache._Cap[id]:TextControl():SetText(game.translate_string(opt_str .. (hint or id)))
+	return self.Cache._Cap[id]:GetHeight()
+end
+
+function UIExperienceOptions:Register_Line(xml, handler)
+	local line = xml:InitStatic("options_wnd:elements:divider", handler)
+	return line:GetHeight() + 10
+end
+
+function UIExperienceOptions:Register_Image(xml, handler, v)
+    if not v.link then
+        return 0
+    end
+
+    local pic = xml:InitStatic("options_wnd:elements:image", handler)
+    pic:InitTexture(v.link)
+    if v.pos then
+        local pos = pic:GetWndPos()
+        pic:SetWndPos(vector2():set(pos.x + v.pos[1] , pos.y + v.pos[2]))
+    end
+	if v.size then
+    	pic:SetWndSize(vector2():set(v.size[1] , v.size[2]))
+	end
+    return pic:GetWndPos().y + pic:GetHeight() + 10
+end
+
+function UIExperienceOptions:Register_Slide(xml, handler, v)
+	local frame = xml:InitStatic("options_wnd:elements:slide", handler)
+	local _pos = frame:GetWndPos()
+	frame:SetWndPos(vector2():set(_pos.x , _pos.y + (v.spacing or 10)))
+	
+	local pic = xml:InitStatic("options_wnd:elements:slide:pic", frame)
+	if v.link then
+		pic:InitTexture(v.link)
+		if (v.pos) then
+			local pos = pic:GetWndPos()
+			pic:SetWndPos(vector2():set(pos.x + v.pos[1] , pos.y + v.pos[2]))
+		end
+		if (v.size) then
+			pic:SetWndSize(vector2():set(v.size[1] * width_factor , v.size[2]))
+		end
+	end
+
+    xml:InitStatic("options_wnd:elements:slide:line_1", frame)
+	local line2 = xml:InitStatic("options_wnd:elements:slide:line_2", frame)
+    line2:SetWndPos(vector2():set(line2:GetWndPos().x, pic:GetWndPos().y + pic:GetHeight()))
+    frame:SetWndSize(vector2():set(frame:GetWidth(), line2:GetWndPos().y + line2:GetHeight()))
+
+    local txt = xml:InitTextWnd("options_wnd:elements:slide:txt", frame)
+	if v.text then
+		txt:SetText(game.translate_string(v.text))
+        txt:SetWndSize(vector2():set(txt:GetWidth(), frame:GetHeight()))
+	end
+	return frame:GetWndPos().y + frame:GetHeight() + 10
+end
+
+function UIExperienceOptions:Register_Title(xml, handler, v)
+	local title = xml:InitTextWnd("options_wnd:elements:title_" .. (v.align or "l"), handler)
+	title:SetText(game.translate_string(v.text))
+	title:AdjustHeightToText()
+	title:SetWndSize(vector2():set(title:GetWidth(), title:GetHeight() + 20))
+	if v.clr and v.clr[4] then
+		title:SetTextColor(GetARGB(v.clr[1], v.clr[2], v.clr[3], v.clr[4]))
+	end
+	return title:GetHeight()
+end
+
+function UIExperienceOptions:Register_Desc(xml, handler, v)
+	local desc = xml:InitTextWnd("options_wnd:elements:desc", handler)
+	desc:SetText(game.translate_string(v.text))
+	desc:AdjustHeightToText()
+	desc:SetWndSize(vector2():set(desc:GetWidth(), desc:GetHeight() + 20))
+	if v.clr and v.clr[4] then
+		desc:SetTextColor(GetARGB(v.clr[1], v.clr[2], v.clr[3], v.clr[4]))
+	end
+	return desc:GetHeight()
+end
+
+function UIExperienceOptions:Register_Check(xml, handler, path, opt, v, flags)
+	local id = cc(path, opt)
+	local h = self:Register_Cap(xml, handler,  id, v.hint)
+
+	self.Cache._Check[id] = {}
+	self.Cache._Check[id].ctrl = xml:InitCheck("options_wnd:elements:check", handler)
+	local ctrl = self.Cache._Check[id].ctrl
+
+	if (ctrl:GetHeight() > h) then
+		h = ctrl:GetHeight()
+	end
+
+	local value = self:GetValue(path, opt, v, flags)
+	ctrl:SetCheck(value)
+
+	local id_ctrl = self:Stacker(path, opt, v)
+	self:Register(self.Cache._Check[id].ctrl, id_ctrl)
+	local _wrapper = function(handler)
+		self:Callback_Check(self.Cache._Check[id].ctrl, path, opt, v)
+	end
+	self:AddCallback(id_ctrl, ui_events.BUTTON_CLICKED, _wrapper, self)
+	return h + 10
+end
+
+function UIExperienceOptions:Callback_Check(ctrl, path, opt, v)
+	local value = ctrl:GetCheck()
+	self:CacheValue(path, opt, value, v)
+end
+
+function UIExperienceOptions:Register_Button(xml, handler, path, opt, v)
+	local id = cc(path, opt)
+
+	xml:InitFrame("options_wnd:elements:frame_button", handler)
+
+	local ctrl = xml:Init3tButton("options_wnd:elements:btn_button", handler)
+	local h = ctrl:GetHeight()
+
+	local id_cap = s_gsub(id, _opt_, "_")
+	self.Cache._Cap[id_cap] = xml:InitStatic("options_wnd:elements:cap_button", handler)
+	self.Cache._Cap[id_cap]:TextControl():SetText(game.translate_string(opt_str .. (v.hint or id_cap)))
+	if (self.Cache._Cap[id_cap]:GetHeight() > h) then
+		h = self.Cache._Cap[id_cap]:GetHeight()
+	end
+
+	local id_ctrl = self:Stacker(path, opt, v)
+
+	self:Register(ctrl, id_ctrl)
+	local _wrapper = function(handler)
+		self:Callback_Button(ctrl, path, opt, v)
+	end
+	self:AddCallback(id_ctrl, ui_events.BUTTON_CLICKED, _wrapper, self)
+	
+	return h + 10
+end
+
+function UIExperienceOptions:Callback_Button(ctrl, path, opt, v)
+	if v.functor_ui then
+		exec(unpack(v.functor_ui), self)
+	end
+	if v.functor then
+		exec(unpack(v.functor))
+	end
+end
+
+function UIExperienceOptions:Register_List(xml, handler, path, opt, v, flags)
+    local idx
+	local id = cc(path, opt)
+	self:Register_Cap(xml, handler,  id, v.hint)
+
+	local value = self:GetValue(path, opt, v, flags)
+	local content = self:GetContent(path, opt, v)
+
+	self.Cache._List[id] = {}
+	self.Cache._List[id].ctrl = experience_ui.UIComboBoxCustom(xml, "options_wnd:elements:list", handler)
+	local ctrl = self.Cache._List[id].ctrl
+
+	for i=1, #content do
+		local str_2 = content[i][2] or tostring(content[i][1])
+		local str = v.no_str and str_2 or opt_str_lst .. str_2
+		ctrl:AddItem(game.translate_string(str), i)
+		
+		if content[i][1] == value then
+			idx = i
+		end
+	end
+
+	idx = idx or 1
+	ctrl:SetCurrentID(idx)
+
+	local _wrapper = function(handler)
+		self:Callback_List(self.Cache._List[id].ctrl, path, opt, v)
+	end
+	ctrl:SetCallback(_wrapper, self)
+	
+	return ctrl:GetWndPos().y + ctrl:GetHeight()
+end
+
+function UIExperienceOptions:Callback_List(ctrl, path, opt, v)
+	local i = ctrl:GetCurrentID()
+	local content = self:GetContent(path, opt, v)
+	self:CacheValue(path, opt, content[i][1], v)
+	if v.on_select then
+		exec(v.on_select, content[i][1])
+	end
+end
+
+function UIExperienceOptions:Register_Input(xml, handler, path, opt, v, flags)
+	local id = cc(path, opt)
+
+	local h = self:Register_Cap(xml, handler,  id, v.hint)
+
+	self.Cache._Input[id] = {}
+	self.Cache._Input[id].ctrl = xml:InitEditBox("options_wnd:elements:input", handler)
+	local ctrl = self.Cache._Input[id].ctrl
+
+	if (ctrl:GetHeight() > h) then
+		h = ctrl:GetHeight()
+	end
+
+	local value = self:GetValue(path, opt, v, flags)
+	ctrl:SetText(value)
+
+	local id_ctrl = self:Stacker(path, opt, v)
+
+	self:Register(self.Cache._Input[id].ctrl, id_ctrl)
+	local _wrapper = function(handler)
+		self:Callback_Input(self.Cache._Input[id].ctrl, path, opt, v)
+	end
+	self:AddCallback(id_ctrl, ui_events.EDIT_TEXT_COMMIT, _wrapper, self)
+
+	return h + 10
+end
+
+function UIExperienceOptions:Callback_Input(ctrl, path, opt, v)
+	local value = ctrl:GetText()
+	if not (value and value ~= "") then
+		ctrl:SetText(self:GetCurrentValue(path, opt, v) or self:GetDefaultValue(path, opt, v))
+		return
+	end
+	
+	if v.val == 2 then
+		value = tonumber(value)
+		if not value then
+			ctrl:SetText(self:GetCurrentValue(path, opt, v) or self:GetDefaultValue(path, opt, v))
+			return
+		end
+		if v.round then
+			value = round(value)
+		end
+		value = clamp(value, v.min, v.max)
+	end
+
+	self:CacheValue(path, opt, value, v)
+	ctrl:SetText(value)
+end
+
+function UIExperienceOptions:Register_Track(xml, handler, path, opt, v, flags)
+	local id = cc(path, opt)
+
+	local h = self:Register_Cap(xml, handler,  id, v.hint)
+
+	self.Cache._Track[id] = {}
+	self.Cache._Track[id].ctrl = xml:InitTrackBar("options_wnd:elements:track", handler)
+	self.Cache._Track[id].path = path
+	self.Cache._Track[id].opt = opt
+	if self.Cache._Track[id].ctrl:GetHeight() > h then
+		h = self.Cache._Track[id].ctrl:GetHeight()
+	end
+
+	self.Cache._Track[id].txt = xml:InitTextWnd("options_wnd:elements:track_value", handler)
+
+	local value = self:GetValue(path, opt, v, flags)
+	value = clamp(value, v.min, v.max)
+	value = round_idp(value, v.prec or precision)
+
+	self.Cache._Track[id].value = value
+	self.Cache._Track[id].ctrl:SetInvert(v.invert and true or false)
+	self.Cache._Track[id].ctrl:SetStep(v.step)
+	self.Cache._Track[id].ctrl:SetOptFBounds(v.min, v.max)
+	self.Cache._Track[id].ctrl:SetFValue(value)
+
+	if not v.no_str then
+		if v.str_format then
+			self.Cache._Track[id].txt:SetText(strformat(game.translate_string(v.str_format), value))
+		else
+			self.Cache._Track[id].txt:SetText(value)
+		end
+		if v.lerp_clr and #v.lerp_clr == 3 then
+			local min = v.lerp_clr[1]
+			local mid = v.lerp_clr[2]
+			local max = v.lerp_clr[3]
+			self.Cache._Track[id].clr = {}
+			self.Cache._Track[id].clr.min = { min[1], min[2], min[3], min[4], v.min }
+			self.Cache._Track[id].clr.mid = { mid[1], mid[2], mid[3], mid[4], (v.min + v.max) / 2 }
+			self.Cache._Track[id].clr.max = { max[1], max[2], max[3], max[4], v.max }
+			self.Cache._Track[id].txt:SetTextColor(lerp_color(value, self.Cache._Track[id].clr.min, self.Cache._Track[id].clr.mid, self.Cache._Track[id].clr.max))
+		end
+	end
+
+	return h + 10
+end
+
+function UIExperienceOptions:Callback_Track(ctrl, path, opt, clr, v, value)
+	if not v.no_str then
+		if v.str_format then
+			ctrl:SetText(strformat(game.translate_string(v.str_format), value))
+		else
+			ctrl:SetText(value)
+		end
+		if clr then
+			ctrl:SetTextColor(lerp_color(value, clr.min, clr.mid, clr.max))
+		end
+	end
+	self:CacheValue(path, opt, value, v)
+end
+
+function UIExperienceOptions:Register_Radio(xml, handler, path, opt, v, typ, flags)
+	local id = cc(path, opt)
+
+	local h = self:Register_Cap(xml, handler,  id, v.hint)
+	
+	local str = typ and "horz" or "vert"
+	local content = self:GetContent(path, opt, v)
+	local num = #content
+	if (num > 5 and not v.force_horz) then
+		typ = false
+		str = "vert"
+	end
+	
+	self.Cache._Radio[id] = {}
+	self.Cache._Radio[id].ctrl = {}
+	local ctrl = self.Cache._Radio[id].ctrl
+
+	local frame = xml:InitStatic("options_wnd:elements:radio_" .. str, handler)
+	local txt
+	local offset = typ and math.floor(frame:GetWidth()/num) or 30
+	local h_factor = typ and 1 or 0
+	local v_factor = typ and 0 or 1
+	local h1, h2 = 0, 0
+	for i=1, num do 
+		ctrl[i] = xml:InitCheck("options_wnd:elements:radio_" .. str .. ":btn", frame)
+		local pos = ctrl[i]:GetWndPos()
+		h1 = (h1 * v_factor) + ctrl[i]:GetHeight()
+		ctrl[i]:SetWndPos(vector2():set( pos.x + ((i-1) * offset * h_factor) , pos.y + ((i-1) * offset * v_factor) ))
+		
+		txt = xml:InitTextWnd("options_wnd:elements:radio_" .. str .. ":txt", frame)
+		local pos2 = txt:GetWndPos()
+		h2 = h_factor * txt:GetHeight()
+		txt:SetWndPos(vector2():set( pos2.x + ((i-1) * offset * h_factor) , pos2.y - (v_factor * 30) + ((i-1) * offset * v_factor) ))
+		local str_2 = content[i][2] or tostring(content[i][1])
+		local str = v.no_str and str_2 or opt_str_lst .. str_2
+		txt:SetText(game.translate_string(str))
+		
+		if (h1 + h2 > h) then
+			h = h1 + h2
+		end
+	end
+	
+	local value = self:GetValue(path, opt, v, flags)
+	
+	local id_ctrl = self:Stacker(path, opt, v)
+	for i=1, num do
+		if (content[i][1] == value) then
+			ctrl[i]:SetCheck(true)
+		else
+			ctrl[i]:SetCheck(false)
+		end
+		
+		self:Register(self.Cache._Radio[id].ctrl[i], id_ctrl .. i)
+		local _wrapper = function(handler)
+			self:Callback_Radio(self.Cache._Radio[id].ctrl, path, opt, v, i)
+		end
+		self:AddCallback(id_ctrl .. i, ui_events.BUTTON_CLICKED, _wrapper, self)
+	end
+	
+	return h + 10
+end
+
+function UIExperienceOptions:Callback_Radio(ctrl, path, opt, v, n)
+	local value = ctrl[n]:GetCheck()
+	if value then
+		for i=1,#ctrl do
+			if i ~= n then
+				ctrl[i]:SetCheck(false)
+			end
+		end
+		
+		local content = self:GetContent(path, opt, v)
+		self:CacheValue(path, opt, content[n][1], v)
+		if v.on_select then
+			exec(v.on_select, content[n][1])
+		end
+	else
+		ctrl[n]:SetCheck(true)
+	end
+end
+
+function UIExperienceOptions:Register_ImageList(xml, handler, path, opt, v, flags)
+	local id = cc(path, opt)
+	local h = 0
+	local w_h = handler:GetWidth() / 2
+
+
+	-- Cap
+	local c_id = s_gsub(id, _opt_, "_")
+	if v.hint then
+		self.Cache._Hint[c_id] = v.hint
+	end
+	self.Cache._Cap[c_id] = xml:InitStatic("options_wnd:elements:title_c", handler)
+	self.Cache._Cap[c_id]:TextControl():SetText(game.translate_string(opt_str .. (v.hint or c_id)))
+	self.Cache._Cap[c_id]:TextControl():SetTextColor(clr_g1)
+	self.Cache._Cap[c_id]:SetWndSize(vector2():set( self.Cache._Cap[c_id]:GetWidth(), self.Cache._Cap[c_id]:GetHeight() + 10 ))
+
+	h = h + self.Cache._Cap[c_id]:GetWndPos().y + self.Cache._Cap[c_id]:GetHeight()
+	local value = self:GetValue(path, opt, v, flags)
+
+
+	-- Image
+	self.Cache._ImageList[id] = {}
+	self.Cache._ImageList[id].pic = xml:InitStatic("options_wnd:elements:image", handler)
+
+	local pic = self.Cache._ImageList[id].pic
+    pic:InitTexture(v.link and v.link .. value or value)
+
+	if v.size then
+    	pic:SetWndSize(vector2():set( v.size[1] , v.size[2] ))
+	end
+	pic:SetWndPos(vector2():set( w_h - pic:GetWidth() / 2 , h ))
+
+	h = h + pic:GetHeight() + 10
+
+
+	-- List
+	self.Cache._ImageList[id].list = experience_ui.UIComboBoxCustom(xml, "options_wnd:elements:list", handler)
+	local list = self.Cache._ImageList[id].list
+	list:SetWndPos(vector2():set( w_h - list:GetWidth() / 2 , h ))
+
+	local idx = 1
+	local content = self:GetContent(path, opt, v)
+	for i=1, #content do
+		local str_2 = content[i][2] or tostring(content[i][1])
+		local str = v.no_str and str_2 or opt_str_lst .. str_2
+		list:AddItem(game.translate_string(str), i)
+
+		if content[i][1] == value then
+			idx = i
+		end
+	end
+
+	list:SetCurrentID(idx)
+	local _wrapper = function(handler)
+		self:Callback_ImageList(self.Cache._ImageList[id].pic, self.Cache._ImageList[id].list, path, opt, v)
+	end
+	list:SetCallback(_wrapper, self)
+
+
+	h = h + list:GetHeight()
+    return h
+end
+
+function UIExperienceOptions:Callback_ImageList(pic, list, path, opt, v)
+	local i = list:GetCurrentID()
+	local content = self:GetContent(path, opt, v)
+	local value = content[i][1]
+
+	pic:InitTexture(v.link and v.link .. value or value)
+	self:CacheValue(path, opt, value, v)
+	if v.on_select then
+		exec(v.on_select, value)
+	end
+end
+
+
+----------------------------------------------------
+-- Utilities
+----------------------------------------------------
+function UIExperienceOptions:GetValue(path, opt, v, flags)
+    local value
+
+	if (flags and flags.def) then
+		value = self:GetDefaultValue(path, opt, v)
+	end
+
+    if value ~= nil or (flags and flags.def) then
+        if (value ~= nil and v.type == "track") then
+            value = clamp(value, v.min, v.max)
+        end
+        self:CacheValue(path, opt, value, v)
+    end
+
+    if value == nil then
+        value = self:GetCurrentValue(path, opt, v)
+    end
+    if value == nil then
+        value = self:GetDefaultValue(path, opt, v)
+    end
+
+    if (value ~= nil and v.type == "track") then
+        value = clamp(value, v.min, v.max)
+    end
+
+    return value
+end
+
+function UIExperienceOptions:GetDefaultValue(path, opt, v)
+	local id = cc(path, opt)
+	local value
+	
+	if type(v.def) == "table" then
+		value = exec(unpack(v.def))
+	else
+		value = v.def
+	end
+
+	if (ini_options:r_value(opt_section, id, v.val) == nil and value ~= nil) then
+		if opt_unknown[id] then
+			opt_unknown[id] = nil
+		end
+        ini_options:w_value(opt_section, id, value)
+		self.Save_INI = true
+	end
+	
+	return value
+end
+
+function UIExperienceOptions:GetCurrentValue(path, opt, v)
+	local id = cc(path, opt)
+
+	if opt_temp[id] ~= nil then
+		local _id = s_gsub(id, _opt_, "_")
+		if (self.Cache._Cap[_id] and self.Cache._Cap[_id]:IsShown()) then
+			self.Cache._Cap[_id]:TextControl():SetTextColor(clr_o)
+		end
+		return opt_temp[id]
+	end
+	
+	local value
+	if v.curr then
+		value = exec(unpack(v.curr))
+	else
+		value = ini_options:r_value(opt_section, id, v.val)
+	end
+
+	return value
+end
+
+function UIExperienceOptions:GetContent(path, opt, v)
+    if type(v.content[1]) == "function" then
+		return exec(unpack(v.content))
+	else
+		return v.content
+	end
+end
+
+function UIExperienceOptions:GetOption(id)
+	local t = str_explode(id, _opt_ )
+	local v = options
+	for i=1, #t do
+		for j=1, #v do
+			if v[j].id == t[i] then
+				if i == #t then
+					v = v[j]
+				else
+					v = v[j].gr
+				end
+				break
+			end
+		end
+	end
+	return v
+end
+
+function UIExperienceOptions:CacheValue(path, opt, value, v)
+	local id = cc(path, opt)
+
+	if (opt_backup[id] == nil) then
+		opt_backup[id] = self:GetValue(path, opt, v)
+	end
+
+	if (value ~= nil) and (value ~= opt_backup[id]) then
+		opt_temp[id] = value
+	else
+		opt_temp[id] = nil
+	end
+
+	local _id = s_gsub(id, _opt_, "_")
+	if (self.Cache._Cap[_id] and self.Cache._Cap[_id]:IsShown()) then
+		if (opt_temp[id] ~= nil and opt_temp[id] ~= opt_backup[id]) then
+			self.Cache._Cap[_id]:TextControl():SetTextColor(clr_o)
+		else
+			self.Cache._Cap[_id]:TextControl():SetTextColor(clr_g1)
+		end
+	end
+
+	self:UpdatePending()
+end
+
+function UIExperienceOptions:Stacker(path, opt, v)
+    if not v.stack then
+        v.stack = 0
+    end
+    v.stack = v.stack + 1
+    return cc(cc(path, opt), v.stack)
+end
+
+function UIExperienceOptions:UpdatePending()
+	local size = size_table(opt_temp)
+	if size > 0 then
+		self.pending_text:SetText(strformat(game.translate_string("ui_experience_options_warning_pending"), size))
+	else
+		self.pending_text:SetText("")
+	end
+end
+
+
+----------------------------------------------------
+-- Callbacks
+----------------------------------------------------
+function UIExperienceOptions:Callback_Preset()
+	self:PlaySND("menu_click_2")
+	local idx = self.lst_presets:GetCurrentID()
+	self.lst_presets:SetCurrentID(0)
+
+	for id, value in pairs(self.presets[idx]) do
+		local v = get_opt_table(id)
+		local to_hide = v and v.precondition and (not exec(unpack(v.precondition)))
+		if (v and v.type and not to_hide) then
+			local t = path_opt_explode(id)
+			local opt = t[#t]
+			local path = t[1]
+			for i=2, #t-1 do
+				path = cc(path, t[i])
+			end
+
+			if self.Cache._Check[id] then
+				local ctrl = self.Cache._Check[id].ctrl
+				if ctrl:GetCheck() ~= value then
+					ctrl:SetCheck(value)
+					self:Callback_Check(ctrl, path, opt, v)
+				end
+
+			elseif self.Cache._List[id] then
+				local ctrl = self.Cache._List[id].ctrl
+				local content = self:GetContent(path, opt, v)
+				for i=1, #content do
+					if content[i][1] == value then
+						if self:GetValue(path, opt, v) ~= value then
+							ctrl:SetCurrentID(i)
+							self:Callback_List(ctrl, path, opt, v)
+						end
+						break
+					end
+				end
+
+			elseif self.Cache._Input[id] then
+				local ctrl = self.Cache._Input[id].ctrl
+				if ctrl:GetText() ~= tostring(value) then
+					ctrl:SetText(value)
+					self:Callback_Input(ctrl, path, opt, v)
+				end
+
+			elseif self.Cache._Track[id] then
+				local e = self.Cache._Track[id]
+				local val = clamp(value, v.min, v.max)
+				val = round_idp(val, v.prec or precision)
+				if val ~= e.value then
+					e.ctrl:SetFValue(val)
+					e.value = val
+					self:Callback_Track(e.txt, path, opt, e.clr, v, val)
+				end
+
+			elseif self.Cache._Radio[id] then
+				local ctrl = self.Cache._Radio[id].ctrl
+				local content = self:GetContent(path, opt, v)
+				for i=1, #content do
+					if content[i][1] == value then
+						if ctrl[i]:GetCheck() == false then
+							ctrl[i]:SetCheck(true)
+							self:Callback_Radio(ctrl, path, opt, v, i)
+						end
+						break
+					end
+				end
+
+			elseif self.Cache._ImageList[id] then
+				local content = self:GetContent(path, opt, v)
+				for i=1, #content do
+					if content[i][1] == value then
+						if self:GetValue(path, opt, v) ~= value then
+							self.Cache._ImageList[id].list:SetCurrentID(i)
+							self:Callback_ImageList(self.Cache._ImageList[id].pic, self.Cache._ImageList[id].list, path, opt, v)
+						end
+						break
+					end
+				end
+			else
+				self:CacheValue(path, opt, value, v)
+			end
+		end
+	end
+end
+
+function UIExperienceOptions:OnButton_Accept()
+	for id, val in pairs(opt_temp) do
+		local v = self:GetOption(id)
+
+		if not v.curr then
+			if (opt_unknown[id] and val ~= nil) then
+				opt_unknown[id] = nil
+			end
+			ini_options:w_value(opt_section, id, val)
+			self.Save_INI = true
+		end
+		self.Change_Done = true
+
+		if v.functor then
+			if v.postcondition then
+				if exec(unpack(v.postcondition)) then
+					exec(unpack(v.functor))
+				end
+			else
+				exec(unpack(v.functor))
+			end
+		end
+	end
+	
+    if self.Save_INI then
+        self.Save_INI = false
+        ini_options:save()
+    end
+	
+	local dont_play_sound = false
+	if self.Change_Done then
+		self.Change_Done = false
+
+		SendScriptCallback("experience_on_option_change", dup_table(opt_temp))
+
+		self:SetMsg(game.translate_string("ui_experience_options_change_done"), 5)
+		self:UpdateActorStats()
+		dont_play_sound = true
+		self:PlaySND("on_accept_1")
+	end
+
+	empty_table(opt_temp)
+	empty_table(opt_backup)
+
+	self:CloseWindow(dont_play_sound)
+end
+
+function UIExperienceOptions:OnButton_Default()
+	if self.Cache.last_path and self.Cache.last_curr_tree then
+		self:Reset_opt(self.Cache.last_curr_tree, self.Cache.last_path, {def = true})
+		self:PlaySND("menu_click_3")
+	end
+end
+
+function UIExperienceOptions:OnButton_Cancel()
+	self:CloseWindow()
+end

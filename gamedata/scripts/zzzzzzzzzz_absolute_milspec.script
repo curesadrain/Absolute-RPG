@@ -1,0 +1,111 @@
+-- Absolute RPG: Milspec PDA recipe unlocked by one learned skill.
+-- Targeted integration with Catspaw's supplied Milspec PDA and Anomaly/GAMMA
+-- UIWorkshopCraft. No replacement of workshop scripts or persistent USB unlock.
+local PERK = "perk_milspec_engineer"
+local PDA = "device_pda_milspec"
+local RECIPE = "recipe_absolute_milspec"
+local MATERIALS = {
+    {"prt_i_transistors", 20}, {"prt_i_capacitors", 25},
+    {"prt_o_ballistic_8", 1}, {"device_pda_3", 1}
+}
+local hooks = {}
+local next_check = 0
+local function pack(...) return {n=select("#", ...), ...} end
+
+function is_learned()
+    local core = experience_core
+    if not (core and type(core.GetSkillData) == "function") then return false end
+    local data = core.GetSkillData(PERK)
+    return data and data.enable and (tonumber(data.curr_level) or 0) >= 1 or false
+end
+
+function available()
+    if not (item_milpda and ini_sys and ini_sys:section_exist(PDA)) then return false end
+    for _, material in ipairs(MATERIALS) do
+        if not ini_sys:section_exist(material[1]) then return false end
+    end
+    return true
+end
+
+local function sync_access(window)
+    if window.recipes_items then
+        window.recipes_items[RECIPE] = available() and is_learned()
+    end
+end
+
+function restore_recipe(window)
+    if not available() or not window.recipes or not window.recipes[1] then return end
+    -- Remove all old variants, including any using the old flash drive or an
+    -- unrestricted recipe. Leave every other item/tab unchanged.
+    for _, recipes in pairs(window.recipes) do
+        for i = #recipes, 1, -1 do
+            if recipes[i].sec == PDA then table.remove(recipes, i) end
+        end
+    end
+    local discount = game_achievements and game_achievements.has_achievement
+        and game_achievements.has_achievement("artificer_eagerness") and 1 or 0
+    local recipe = {sec=PDA, tool=3, rsp=RECIPE}
+    for i, material in ipairs(MATERIALS) do
+        local count = material[2]
+        recipe[i] = {material[1], count > 4 and count - discount or count}
+    end
+    table.insert(window.recipes[1], recipe)
+    sync_access(window)
+end
+
+local function targets_pda(window)
+    if window.craft_item_r and window.craft_item_r[1] == PDA then return true end
+    local recipes = window.recipes and window.recipes[window.last_type]
+    local recipe = recipes and recipes[window.selected_index or window.last_index]
+    return recipe and recipe.sec == PDA or false
+end
+
+local function stop_craft(window)
+    window.craft_allow_r = false
+    if window.btn_craft then window.btn_craft:Enable(false) end
+end
+
+function install()
+    if not available() then return false end
+    local class = ui_workshop and ui_workshop.UIWorkshopCraft
+    if not class then return false end
+    -- Refresh wrappers if a late workshop monkeypatch replaces a method.
+    for _, name in ipairs({"LoadRecipes", "ListRecipes", "ListItems", "On_CC_Mouse1", "Craft", "Update"}) do
+        local original = class[name]
+        if type(original) == "function" and original ~= hooks[name] then
+            local method = name
+            local wrapped = function(self, ...)
+                sync_access(self)
+                if method == "Craft" and targets_pda(self) and not (available() and is_learned()) then
+                    -- Check at execution as well: stale selections/USB knowledge
+                    -- must not bypass the perk, consume parts or create a PDA.
+                    stop_craft(self)
+                    return
+                end
+                local result = pack(original(self, ...))
+                if method == "LoadRecipes" then restore_recipe(self) end
+                if method == "ListRecipes" then sync_access(self) end
+                if method == "Update" and targets_pda(self) and not (available() and is_learned()) then
+                    stop_craft(self)
+                end
+                return unpack(result, 1, result.n)
+            end
+            class[name] = wrapped
+            hooks[name] = wrapped
+        end
+    end
+    return true
+end
+
+function actor_on_update()
+    local now = time_global()
+    if now < next_check then return end
+    next_check = now + 1000
+    install()
+end
+
+function on_game_start()
+    install()
+    RegisterScriptCallback("actor_on_first_update", install)
+    RegisterScriptCallback("actor_on_update", actor_on_update)
+end

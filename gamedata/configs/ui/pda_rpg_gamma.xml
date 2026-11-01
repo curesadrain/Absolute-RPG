@@ -1,0 +1,557 @@
+<?xml version='1.0' encoding='utf-8'?>
+<w>
+  <background x="0.0" y="0.0" width="756.0" height="606.72" stretch="1">
+    </background>
+  <static_version x="10.34" y="584">
+    <text align="l" font="letterica16" a="190" r="190" g="190" b="190" complex_mode="0" />
+  </static_version>
+  <msg_wnd x="0.0" y="0.0" width="155.04" height="79.0">
+    <background x="0.0" y="0.0" width="155.04" height="79.0">
+      <texture>ui_icons_PDA_tooltips</texture>
+    </background>
+    <text x="14.77" y="15.8" width="140.27" height="79.0">
+      <text font="letterica16" color="ui_6" complex_mode="1" align="l" vert_align="t" />
+    </text>
+  </msg_wnd>
+  <hint_wnd>
+    <background x="0.0" y="0.0" width="206.72" height="79.0">
+      <texture>ui_experience_main_tooltip</texture>
+    </background>
+    <text x="5.91" y="7.9" width="194.91" height="79.0">
+      <text font="letterica16" a="255" r="188" g="210" b="255" complex_mode="1" align="l" vert_align="t" />
+    </text>
+  </hint_wnd>
+  <pp_effect x="0.0" y="0.0" width="756.0" height="606.72" stretch="1">
+    <texture>ui_experience_main_pp_effect_flare</texture>
+  </pp_effect>
+  <main_wnd>
+    <left_bar>
+      <frame x="0" y="64" width="60" height="475" stretch="1">
+        </frame>
+      <btn_skills x="9" y="10" width="42" height="48" stretch="1">
+        <texture>ui_experience_btn_skills_wnd</texture>
+      </btn_skills>
+      <btn_traits x="9" y="76" width="42" height="48" stretch="1">
+        <texture>ui_experience_btn_traits_wnd</texture>
+      </btn_traits>
+      <btn_tasks x="9" y="142" width="42" height="48" stretch="1">
+        <texture>ui_experience_btn_tasks_wnd</texture>
+      </btn_tasks>
+      <btn_options x="9" y="208" width="42" height="48" stretch="1">
+        <texture>ui_experience_btn_options_wnd</texture>
+      </btn_options>
+      <btn_xpmult x="9" y="274" width="42" height="48" stretch="1">
+        <texture>ui_experience_btn_xpmult_wnd</texture>
+      </btn_xpmult>
+      <btn_debug x="9" y="340" width="42" height="48" stretch="1">
+        <texture>ui_experience_btn_debug_wnd</texture>
+      </btn_debug>
+    </left_bar>
+    <actor_level>
+      <count x="0" y="15.8" width="44" height="25.28">
+        <text a="255" r="13" g="187" b="230" align="r" font="letterica18" />
+      </count>
+      <name x="49" y="15.8" width="80" height="12.64">
+        <text a="255" r="230" g="230" b="230" font="letterica16" align="l">ui_st_experience_main_wnd_actor_level</text>
+      </name>
+      <experience_text x="49" y="28.44" width="140" height="9.48">
+        <text a="255" r="244" g="147" b="22" font="arial_14" align="l" />
+      </experience_text>
+    </actor_level>
+    <actor_prestige>
+      <icon x="195" y="1.58" width="50" height="46" stretch="1" />
+    </actor_prestige>
+    <actor_skillpoints>
+      <name x="555" y="19.75" width="135" height="12.64">
+        <text a="255" r="246" g="220" b="48" font="letterica16" align="r">ui_st_experience_main_wnd_actor_skillpoints</text>
+      </name>
+      <count x="698" y="15.8" width="50" height="25.28">
+        <text a="255" r="246" g="174" b="48" align="l" font="letterica18" />
+      </count>
+    </actor_skillpoints>
+    <btn_inc_prestige x="0.0" y="16.59" width="17.72" height="23.7" stretch="1">
+      <texture>ui_experience_btn_inc_prestige</texture>
+    </btn_inc_prestige>
+  </main_wnd>
+  <tasks_wnd x="271.69" y="88.48" width="228.87" height="426.6">
+    <frame x="0.0" y="0.0" width="228.87" height="426.6" stretch="1">
+      </frame>
+    <tasks_scrollbar x="5.91" y="8.69" width="224.44" height="369.72" right_ident="0" left_ident="0" top_indent="0" bottom_indent="0" vert_interval="0" always_show_scroll="0" />
+    <st x="0.0" y="0.0" width="217.05" height="39.5" stretch="1">
+      <texture>ui_experience_stroketextbox</texture>
+    </st>
+    <icon_cap x="76.78" y="0.0" width="63.49" height="50.56" stretch="1" />
+    <name_cap x="3.69" y="0.0" width="209.67" height="39.5">
+      <text complex_mode="1" align="c" vert_align="c" font="letterica18" />
+    </name_cap>
+    <reward_cap x="3.69" y="0.0" width="209.67" height="15.8">
+      <text align="c" vert_align="c" font="letterica16" />
+    </reward_cap>
+    <task_button>
+      <btn_frame x="64.23" y="0.0" width="88.59" height="23.7" stretch="1">
+        <texture>ui_experience_stroketextbox</texture>
+      </btn_frame>
+      <btn x="0.0" y="0.0" width="88.59" height="23.7" stretch="1">
+        <text align="c" font="letterica16">ui_experience_tasks_btn_complete_task</text>
+        <texture>ui_experience_button_inv</texture>
+      </btn>
+    </task_button>
+    <timer_cap x="62.02" y="383.94" width="104.84" height="14.22">
+      <text r="246" g="174" b="48" align="c" vert_align="c" font="letterica16">ui_experience_tasks_wnd_timer_cap</text>
+    </timer_cap>
+    <timer x="76.78" y="398.95" width="75.3" height="22.91">
+      <text r="246" g="174" b="48" align="c" vert_align="c" font="letterica16" />
+    </timer>
+  </tasks_wnd>
+  <skills_wnd x="70" y="55" width="680" height="522">
+    <frame x="0.0" y="0.0" width="680" height="522" stretch="1">
+      </frame>
+    <skills_scrollbar x="8" y="60" width="292" height="400" right_ident="0" left_ident="0" top_indent="0" bottom_indent="0" vert_interval="0" always_show_scroll="0" />
+    <skill_st x="0.0" y="0.0" width="280" height="39.5" />
+    <skill_icon x="4" y="1.58" width="36" height="36.34" stretch="1" />
+    <skill_name x="46" y="3.16" width="234" height="36.34">
+      <text align="l" vert_align="c" font="letterica16" />
+    </skill_name>
+    <skill_btn x="0.0" y="0.0" width="280" height="39.5" stretch="1">
+      <texture>ui_experience_button_skill</texture>
+    </skill_btn>
+    <description_scrollbar x="314" y="60" width="358" height="340" right_ident="0" left_ident="0" top_indent="0" bottom_indent="0" vert_interval="0" always_show_scroll="0" />
+    <description_st x="0.0" y="0.0" width="346" height="340" />
+    <description_icon x="0.0" y="7.9" width="94.5" height="101.12" stretch="1" />
+    <description_name x="0.0" y="8" width="346" height="158.0">
+      <text complex_mode="1" align="c" vert_align="c" font="letterica18" />
+    </description_name>
+    <description_text x="4" y="8" width="338" height="158.0">
+      <text complex_mode="1" align="l" vert_align="t" font="letterica16" />
+    </description_text>
+    <skill_conntrols x="314" y="410" width="358" height="112">
+      <prev_lvl_tip x="90" y="5" width="24" height="26" stretch="1">
+        <texture>ui_experience_skills_left_button</texture>
+      </prev_lvl_tip>
+      <next_lvl_tip x="244" y="5" width="24" height="26" stretch="1">
+        <texture>ui_experience_skills_right_button</texture>
+      </next_lvl_tip>
+      <selected_lvl x="144.19" y="11.85" width="69.6" height="12.64">
+        <text r="230" g="230" b="230" align="c" vert_align="c" font="letterica16" />
+      </selected_lvl>
+      <selected_lvl_tip x="98.19" y="30.02" width="161.6" height="14.22">
+        <text r="230" g="230" b="230" align="c" vert_align="c" font="letterica16" />
+      </selected_lvl_tip>
+      <selected_lvl_btn_frame x="18.64" y="52.93" width="320.71" height="23.7" stretch="1">
+        <texture>ui_experience_stroketextbox_black</texture>
+      </selected_lvl_btn_frame>
+      <selected_lvl_btn x="0.0" y="0.0" width="320.71" height="23.7" stretch="1">
+        <text font="letterica18" align="c" vert_align="c" />
+        <texture>ui_experience_button_inv</texture>
+      </selected_lvl_btn>
+      <state_skill_tip x="0.0" y="52.14" width="358.01" height="22.12">
+        <text align="c" vert_align="c" font="letterica18" />
+      </state_skill_tip>
+      <hide_skill_cap x="79" y="76" width="200" height="12.64">
+        <text a="250" r="230" g="230" b="230" font="letterica16" align="c" vert_align="c">arpg_hide_skill</text>
+      </hide_skill_cap>
+      <hide_skill_btn x="164" y="88" width="30" height="23.7" stretch="1">
+        <texture>ui_experience_radio</texture>
+      </hide_skill_btn>
+      <learn_btn x="40" y="48" width="278" height="26" stretch="1">
+        <texture>ui_experience_button_default</texture>
+        <text font="letterica16" align="c" vert_align="c">arpg_learn_hold_plain</text>
+      </learn_btn>
+      <learn_progress x="0" y="0" width="2" height="2" stretch="1">
+        <texture a="255" r="70" g="220" b="220">ui_experience_scrollbar_container_white_rect</texture>
+      </learn_progress>
+    </skill_conntrols>
+    <editor_mode>
+      <frame_btn_save x="367" y="432.92" width="110" height="31.6" stretch="1">
+        <texture>ui_experience_stroketextbox</texture>
+      </frame_btn_save>
+      <btn_save x="0.0" y="0.0" width="110" height="31.6" stretch="1">
+        <text align="c" font="letterica16">ui_experience_skills_wnd_edit_mode_btn_save</text>
+        <texture>ui_experience_button_inv</texture>
+      </btn_save>
+      <frame_btn_reset x="497" y="432.92" width="110" height="31.6" stretch="1">
+        <texture>ui_experience_stroketextbox</texture>
+      </frame_btn_reset>
+      <btn_reset x="0.0" y="0.0" width="110" height="31.6" stretch="1">
+        <text align="c" font="letterica16">ui_experience_skills_wnd_edit_mode_btn_reset</text>
+        <texture>ui_experience_button_inv</texture>
+      </btn_reset>
+      <track_frame x="0.0" y="0.0" width="338" height="65.57" stretch="1">
+        <texture>ui_experience_stroketextbox</texture>
+      </track_frame>
+      <track_name x="2.95" y="15.8" width="338" height="15.8" stretch="1">
+        <text align="c" vert_align="c" font="letterica16" />
+      </track_name>
+      <track x="2.95" y="35.55" width="275" height="12.64" stretch="1" step="1.0" />
+      <track_value x="284" y="35.55" width="50" height="14.22" stretch="1">
+        <text align="c" vert_align="c" font="letterica16" />
+      </track_value>
+    </editor_mode>
+    <hide_lrn_skill_cap x="140" y="11.85" width="160" height="12.64">
+      <text a="250" r="230" g="230" b="230" font="letterica16" align="c" vert_align="c">ui_experience_skills_wnd_skill_hide_learned_skills_cap</text>
+    </hide_lrn_skill_cap>
+    <hide_lrn_skill_btn x="204" y="22.12" width="30" height="23.7" stretch="1">
+      <texture>ui_experience_radio</texture>
+    </hide_lrn_skill_btn>
+    <sort_list_cap x="312" y="11.85" width="190" height="12.64">
+      <text a="250" r="230" g="230" b="230" font="letterica16" align="c" vert_align="c">ui_experience_skills_wnd_skill_sort_list_cap</text>
+    </sort_list_cap>
+    <sort_list x="312" y="27.65" width="190" height="73.47">
+      <frame_cap x="0.0" y="0.0" width="190.0" height="12.64">
+        <texture>ui_experience_combobox_custom_linetext</texture>
+        <cap_text x="4.31" y="0.79" width="179.19" height="12.64">
+          <text a="240" r="220" g="220" b="220" font="letterica16" align="l" vert_align="c" />
+        </cap_text>
+      </frame_cap>
+      <list_frame x="0.0" y="12.64" width="188.92" height="60.83">
+        <texture>ui_experience_combobox_custom</texture>
+        <list x="4.31" y="1.58" width="181.36" height="56.88" item_height="16" can_select="1" />
+      </list_frame>
+    </sort_list>
+    <skill_edit_mode_cap x="510" y="11.85" width="160" height="12.64">
+      <text a="250" r="230" g="230" b="230" font="letterica16" align="c" vert_align="c">ui_experience_skills_wnd_skill_edit_mode_cap</text>
+    </skill_edit_mode_cap>
+    <skill_edit_mode_btn x="575" y="22.12" width="30" height="23.7" stretch="1">
+      <texture>ui_experience_radio</texture>
+    </skill_edit_mode_btn>
+    <category_cap x="57" y="470.84" width="194" height="14.22">
+      <text a="255" r="237" g="141" b="38" font="letterica16" align="c" vert_align="c" />
+    </category_cap>
+    <category_left_btn x="30" y="465.31" width="22" height="25.28" stretch="1">
+      <texture>ui_experience_skills_left_button</texture>
+    </category_left_btn>
+    <category_right_btn x="257" y="465.31" width="22" height="25.28" stretch="1">
+      <texture>ui_experience_skills_right_button</texture>
+    </category_right_btn>
+    <show_hidden_cap x="8" y="11.85" width="130" height="12.64">
+      <text a="250" r="230" g="230" b="230" font="letterica16" align="c" vert_align="c">arpg_show_hidden</text>
+    </show_hidden_cap>
+    <show_hidden_btn x="58" y="22.12" width="30" height="23.7" stretch="1">
+      <texture>ui_experience_radio</texture>
+    </show_hidden_btn>
+  </skills_wnd>
+  <options_wnd x="103.36" y="58.46" width="605.39" height="505.6">
+    <main>
+      <frame x="0.0" y="0.0" width="605.39" height="505.6" stretch="1">
+        </frame>
+      <tree_1 x="8.86" y="26.07" width="75.3" height="364.98" right_ident="0" left_ident="0" top_indent="0" bottom_indent="0" vert_interval="0" always_show_scroll="0" />
+      <tree_2 x="90.81" y="26.07" width="75.3" height="364.98" right_ident="0" left_ident="0" top_indent="0" bottom_indent="0" vert_interval="0" always_show_scroll="0" />
+      <tree_3 x="172.76" y="26.07" width="75.3" height="364.98" right_ident="0" left_ident="0" top_indent="0" bottom_indent="0" vert_interval="0" always_show_scroll="0" />
+      <st_tree x="0.0" y="0.0" width="75.3" height="23.7" />
+      <btn_tree x="0.0" y="0.0" width="74.57" height="22.12" stretch="1">
+        <texture>ui_experience_options_checkbox_TabLED</texture>
+      </btn_tree>
+      <txt_btn_tree x="2.95" y="1.58" width="71.61" height="20.54" stretch="1">
+        <text complex_mode="1" r="200" g="200" b="200" align="c" vert_align="c" font="letterica16" />
+      </txt_btn_tree>
+      <scroll x="253.97" y="26.07" width="354.38" height="474.0" right_ident="0" left_ident="0" top_indent="0" bottom_indent="0" vert_interval="0" always_show_scroll="0" />
+      <st x="0.0" y="0.0" width="345.52" height="31.6" />
+      <cap_presets x="397.2" y="2.37" width="59.06" height="19.75" stretch="1">
+        <text r="180" g="180" b="180" align="r" vert_align="c" font="letterica16">ui_experience_options_presets</text>
+      </cap_presets>
+      <presets x="460.69" y="5.53" width="129.94" height="73.47">
+        <frame_cap x="0.0" y="0.0" width="129.94" height="12.64">
+          <texture>ui_experience_combobox_custom_linetext</texture>
+          <cap_text x="2.95" y="0.79" width="122.55" height="12.64">
+            <text a="240" r="220" g="220" b="220" font="letterica16" align="l" vert_align="c" />
+          </cap_text>
+        </frame_cap>
+        <list_frame x="0.0" y="12.64" width="129.2" height="60.83">
+          <texture>ui_experience_combobox_custom</texture>
+          <list x="2.95" y="1.58" width="124.03" height="56.88" item_height="16" can_select="1" />
+        </list_frame>
+      </presets>
+      <btn_accept x="33.22" y="451.88" width="59.06" height="26.86" stretch="1">
+        <text align="c" font="letterica16">ui_experience_options_btn_accept</text>
+        <texture>ui_experience_button_default</texture>
+      </btn_accept>
+      <btn_default x="95.98" y="451.88" width="59.06" height="26.86" stretch="1">
+        <text align="c" font="letterica16">ui_experience_options_btn_default</text>
+        <texture>ui_experience_button_default</texture>
+      </btn_default>
+      <btn_cancel x="158.73" y="451.88" width="59.06" height="26.86" stretch="1">
+        <text align="c" font="letterica16">ui_experience_options_btn_cancel</text>
+        <texture>ui_experience_button_default</texture>
+      </btn_cancel>
+      <notify x="10.34" y="403.69" width="236.25" height="26.86" stretch="1">
+        <text complex_mode="1" r="250" g="150" b="75" align="c" vert_align="c" font="letterica16" />
+      </notify>
+    </main>
+    <elements>
+      <cap x="3.69" y="3.95" width="180.88" height="23.7" stretch="1">
+        <text r="180" g="180" b="180" font="letterica16" align="l" vert_align="c" />
+      </cap>
+      <block x="7.38" y="0.0" width="330.75" height="474.0" stretch="1">
+        <text complex_mode="1" r="250" g="100" b="100" align="c" vert_align="c" font="letterica16" />
+      </block>
+      <desc x="3.69" y="0.0" width="336.66" height="39.5" stretch="1">
+        <text complex_mode="1" r="230" g="230" b="230" align="l" vert_align="c" font="letterica16" />
+      </desc>
+      <title_l x="14.77" y="0.0" width="315.98" height="39.5" stretch="1">
+        <text complex_mode="1" r="230" g="230" b="230" align="l" vert_align="c" font="graffiti22" />
+      </title_l>
+      <title_c x="14.77" y="0.0" width="315.98" height="39.5" stretch="1">
+        <text complex_mode="1" r="230" g="230" b="230" align="c" vert_align="c" font="graffiti22" />
+      </title_c>
+      <title_r x="14.77" y="0.0" width="315.98" height="39.5" stretch="1">
+        <text complex_mode="1" r="230" g="230" b="230" align="r" vert_align="c" font="graffiti22" />
+      </title_r>
+      <image x="3.69" y="1.58" width="338.13" height="39.5" stretch="1" />
+      <slide x="3.69" y="0.0" width="341.82" height="39.5" stretch="1">
+        <line_1 x="0.0" y="0.0" width="341.82" height="12.64" stretch="1">
+          <texture>ui_experience_option_divider</texture>
+        </line_1>
+        <pic x="0.0" y="12.64" width="341.82" height="39.5" stretch="1" />
+        <txt x="163.16" y="0.0" width="178.66" height="39.5" stretch="1">
+          <text complex_mode="1" r="200" g="200" b="200" align="c" vert_align="c" font="graffiti22" />
+        </txt>
+        <line_2 x="0.0" y="33.18" width="341.82" height="12.64" stretch="1">
+          <texture>ui_experience_option_divider</texture>
+        </line_2>
+      </slide>
+      <divider x="3.69" y="3.95" width="341.82" height="12.64" stretch="1">
+        <texture>ui_experience_option_divider</texture>
+      </divider>
+      <check x="186.05" y="1.58" width="25.84" height="23.7" stretch="1">
+        <texture>ui_experience_checkbox</texture>
+      </check>
+      <list x="190.48" y="6.32" width="147.66" height="73.47">
+        <frame_cap x="0.0" y="0.0" width="147.66" height="12.64">
+          <texture>ui_experience_combobox_custom_linetext</texture>
+          <cap_text x="2.95" y="0.79" width="140.27" height="12.64">
+            <text a="240" r="220" g="220" b="220" font="letterica16" align="l" vert_align="c" />
+          </cap_text>
+        </frame_cap>
+        <list_frame x="0.0" y="12.64" width="146.92" height="60.83">
+          <texture>ui_experience_combobox_custom</texture>
+          <list x="2.95" y="1.58" width="141.75" height="56.88" item_height="16" can_select="1" />
+        </list_frame>
+      </list>
+      <input x="186.05" y="0.0" width="93.02" height="23.7">
+        <text x="3.69" y="2.37" font="letterica16" vert_align="c" align="l" />
+        <texture>ui_experience_entry</texture>
+      </input>
+      <track_value x="186.05" y="-9.48" width="149.13" height="23.7" stretch="1">
+        <text r="116" g="164" b="216" align="c" vert_align="c" font="letterica16" />
+      </track_value>
+      <track x="186.05" y="10.27" width="149.13" height="12.64" stretch="1" step="1.0" />
+      <frame_button x="25.1" y="3.95" width="295.31" height="23.7" stretch="1">
+        <texture>ui_experience_stroketextbox</texture>
+      </frame_button>
+      <btn_button x="25.1" y="3.95" width="295.31" height="23.7" stretch="1">
+        <texture>ui_experience_button_inv</texture>
+      </btn_button>
+      <cap_button x="25.1" y="3.95" width="295.31" height="23.7" stretch="1">
+        <text r="170" g="170" b="170" font="letterica16" align="c" vert_align="c" />
+      </cap_button>
+      <radio_horz x="186.05" y="3.95" width="156.52" height="31.6" stretch="1">
+        <btn x="0.0" y="0.0" width="25.84" height="23.7" stretch="1">
+          <texture>ui_experience_radio</texture>
+        </btn>
+        <txt x="-24.36" y="23.7" width="73.83" height="7.9" stretch="1">
+          <text complex_mode="1" r="200" g="200" b="200" align="c" vert_align="c" font="arial_14" />
+        </txt>
+      </radio_horz>
+      <radio_vert x="186.05" y="3.95" width="156.52" height="790.0" stretch="1">
+        <btn x="0.0" y="0.0" width="25.84" height="23.7" stretch="1">
+          <texture>ui_experience_radio</texture>
+        </btn>
+        <txt x="23.62" y="23.7" width="147.66" height="23.7" stretch="1">
+          <text complex_mode="1" r="200" g="200" b="200" align="l" vert_align="c" font="arial_14" />
+        </txt>
+      </radio_vert>
+    </elements>
+  </options_wnd>
+  <xpmult_wnd x="259.88" y="135.88" width="243.63" height="300.2">
+    <frame x="0.0" y="0.0" width="243.63" height="300.2" stretch="1">
+      </frame>
+    <scrollbar x="4.43" y="5.53" width="242.16" height="289.14" right_ident="0" left_ident="0" top_indent="0" bottom_indent="0" vert_interval="0" always_show_scroll="0" />
+    <st x="0.0" y="0.0" width="234.77" height="15.8" />
+    <xpmult_name x="2.95" y="0.0" width="191.95" height="15.8">
+      <text font="letterica16" align="l" vert_align="c" />
+    </xpmult_name>
+    <xpmult_value x="194.91" y="0.0" width="36.91" height="15.8">
+      <text font="letterica16" align="r" vert_align="c" />
+    </xpmult_value>
+    <line x="2.95" y="1.58" width="228.87" height="12.64" stretch="1">
+      <texture>ui_experience_option_divider</texture>
+    </line>
+  </xpmult_wnd>
+  <traits_wnd x="162.42" y="55.3" width="487.27" height="505.6">
+    <frame x="0.0" y="0.0" width="487.27" height="505.6" stretch="1">
+      </frame>
+    <traits_list x="261.35" y="11.06" width="212.63" height="382.36" />
+    <slots x="18.46" y="56.88" width="348.47" height="447.93">
+      <slot_1 x="0.0" y="98.75" width="110.74" height="94.8" stretch="1">
+        <texture>ui_experience_trait_slot</texture>
+      </slot_1>
+      <slot_2 x="0.0" y="197.5" width="110.74" height="94.8" stretch="1">
+        <texture>ui_experience_trait_slot</texture>
+      </slot_2>
+      <slot_3 x="110.74" y="98.75" width="110.74" height="94.8" stretch="1">
+        <texture>ui_experience_trait_slot</texture>
+      </slot_3>
+      <slot_4 x="110.74" y="197.5" width="110.74" height="94.8" stretch="1">
+        <texture>ui_experience_trait_slot</texture>
+      </slot_4>
+      <slot_5 x="56.85" y="0.0" width="110.74" height="94.8" stretch="1">
+        <texture>ui_experience_trait_slot</texture>
+      </slot_5>
+      <slot_6 x="56.85" y="296.25" width="110.74" height="94.8" stretch="1">
+        <texture>ui_experience_trait_slot</texture>
+      </slot_6>
+      <st x="0.0" y="0.0" width="110.74" height="94.8" stretch="1" />
+      <st_text stretch="1">
+        <text r="0" g="0" b="0" font="graffiti22" align="c" vert_align="c" />
+      </st_text>
+      <hint x="0.0" y="0.0" width="110.74" height="94.8">
+        <text complex_mode="1" r="250" g="100" b="100" font="letterica16" align="c" vert_align="c" />
+      </hint>
+    </slots>
+    <slot_upgr x="75.3" y="195.13" width="110.74" height="94.8" stretch="1">
+      <texture>ui_experience_trait_slot</texture>
+    </slot_upgr>
+    <controls x="259.88" y="405.27" width="215.58" height="83.74">
+      <btn_upgrade_b x="1.48" y="2.37" width="212.63" height="39.5" stretch="1">
+        <texture>ui_experience_stroketextbox</texture>
+      </btn_upgrade_b>
+      <btn_destroy_b x="1.48" y="41.87" width="212.63" height="39.5" stretch="1">
+        <texture>ui_experience_stroketextbox</texture>
+      </btn_destroy_b>
+      <btn x="0.0" y="0.0" width="212.63" height="39.5" stretch="1">
+        <texture>ui_experience_button_inv</texture>
+        <text font="letterica18" align="c" vert_align="c" />
+      </btn>
+    </controls>
+    <frame_btn_spawner x="10.34" y="472.42" width="59.06" height="19.75" stretch="1">
+      <texture>ui_experience_stroketextbox_black</texture>
+    </frame_btn_spawner>
+    <btn_spawner x="0.0" y="0.0" width="59.06" height="19.75" stretch="1">
+      <text font="letterica16" align="c" vert_align="c" />
+      <texture>ui_experience_button_inv</texture>
+    </btn_spawner>
+    <spawner>
+      <frame x="121.82" y="118.5" width="243.63" height="268.6" stretch="1">
+        <texture>ui_experience_stroketextbox_black</texture>
+      </frame>
+      <list x="56.85" y="11.85" width="129.94" height="73.47">
+        <frame_cap x="0.0" y="0.0" width="129.94" height="12.64">
+          <texture>ui_experience_combobox_custom_linetext</texture>
+          <cap_text x="2.95" y="0.79" width="122.55" height="12.64">
+            <text a="240" r="220" g="220" b="220" font="letterica16" align="l" vert_align="c" />
+          </cap_text>
+        </frame_cap>
+        <list_frame x="0.0" y="12.64" width="129.2" height="60.83">
+          <texture>ui_experience_combobox_custom</texture>
+          <list x="2.95" y="1.58" width="124.03" height="56.88" item_height="16" can_select="1" />
+        </list_frame>
+      </list>
+      <input_count x="3.69" y="3.95" width="33.22" height="23.7">
+        <text x="3.69" y="2.37" font="letterica16" vert_align="c" align="l" />
+        <texture>ui_experience_entry</texture>
+      </input_count>
+      <btn_on_spawn x="84.9" y="244.9" width="73.83" height="19.75" stretch="1">
+        <text font="letterica16" align="c" vert_align="c" />
+        <texture>ui_experience_button_inv</texture>
+      </btn_on_spawn>
+    </spawner>
+  </traits_wnd>
+  <debug_wnd x="208.2" y="72.68" width="339.61" height="442.4">
+    <frame x="0.0" y="0.0" width="339.61" height="442.4" stretch="1">
+      </frame>
+    <console_input x="5.91" y="412.38" width="327.8" height="23.7" stretch="1">
+      <text x="5.17" y="1.58" a="255" r="230" g="230" b="230" font="letterica16" vert_align="c" align="l" />
+      <texture>ui_experience_debug_entry</texture>
+    </console_input>
+    <console_scrollbar x="11.07" y="10.27" width="324.84" height="396.58" right_ident="0" left_ident="0" top_indent="0" bottom_indent="0" vert_interval="0" always_show_scroll="1" />
+    <log_text_arial_14 x="3.69" y="0.0" width="317.46" height="0.0">
+      <text complex_mode="1" align="l" font="arial_14" />
+    </log_text_arial_14>
+    <log_text_di x="3.69" y="0.0" width="317.46" height="0.0">
+      <text complex_mode="1" align="l" font="di" />
+    </log_text_di>
+    <log_text_lettrica16 x="3.69" y="0.0" width="317.46" height="0.0">
+      <text complex_mode="1" align="l" font="letterica16" />
+    </log_text_lettrica16>
+    <log_text_lettrica18 x="3.69" y="0.0" width="317.46" height="0.0">
+      <text complex_mode="1" align="l" font="letterica16" />
+    </log_text_lettrica18>
+  </debug_wnd>
+  <maxwell_cat x="0.0" y="0.0" width="310.08" height="237.0">
+    <auto_static x="0.0" y="0.0" width="310.08" height="237.0" stretch="1">
+      <texture x="0.0" y="0.0" width="177.19" height="142.2">ui\experience_framework\maxwell_cat</texture>
+    </auto_static>
+  </maxwell_cat>
+  <nls_target_bar x="304.17" y="17.38" width="147.66" height="44.24">
+    <name_b x="0.0" y="0.0" width="147.66" height="19.75" stretch="1">
+      <texture>ui_experience_nls_target_bar_name_b</texture>
+    </name_b>
+    <name x="0.0" y="0.0" width="147.66" height="15.8">
+      <text align="c" vert_align="c" font="letterica16" />
+    </name>
+    <bar x="0.0" y="15.8" width="147.66" height="14.22" stretch="1">
+      <texture>ui_experience_nls_target_bar_background</texture>
+      <progress_bar x="7.38" y="2.37" width="132.89" height="9.48" horz="1" min="0" max="1" pos="1">
+        <progress stretch="1">
+          <texture>ui_experience_nls_target_bar</texture>
+        </progress>
+      </progress_bar>
+    </bar>
+    <hp_cap x="0.0" y="0.0" width="147.66" height="14.22">
+      <text align="c" vert_align="c" font="arial_14" />
+    </hp_cap>
+    <editor_pos_text x="0.0" y="-8.69" width="0.0" height="9.48">
+      <text align="l" vert_align="c" font="medium" />
+    </editor_pos_text>
+    <editor_frame x="0.0" y="0.0" width="0.0" height="0.0" stretch="1">
+      <texture>ui_experience_stroketextbox</texture>
+    </editor_frame>
+    <editor_frame_cap x="0.0" y="0.0" width="0.0" height="9.48">
+      <text align="c" vert_align="c" font="arial_14" />
+    </editor_frame_cap>
+  </nls_target_bar>
+  <scrollbar_container>
+    <scroll stretch="1" right_ident="0" left_ident="0" top_indent="0" bottom_indent="0" vert_interval="0" always_show_scroll="0" scroll_profile="hidden" />
+    <pad stretch="1">
+      <texture>ui_experience_scrollbar_container_white_rect</texture>
+    </pad>
+    <frame stretch="1" />
+    <element>
+      <st stretch="1" />
+      <counter x="0.0" y="0.0" width="12.55" height="8.69" stretch="1">
+        <texture a="180">ui_experience_scrollbar_container_counter</texture>
+        <text x="0.0" y="0.0" width="12.55" height="8.69" font="arial_14" color="ui_2" align="c" vert_align="c" />
+      </counter>
+      <custom_text stretch="1">
+        <text font="graffiti22" color="ui_2" align="c" vert_align="c" />
+      </custom_text>
+      <highlight stretch="1">
+        <texture>ui_experience_scrollbar_container_highlight</texture>
+      </highlight>
+      <indicator x="0.0" y="0.0" width="8.86" height="9.48" stretch="1">
+        <texture>ui_experience_scrollbar_container_indicator</texture>
+      </indicator>
+    </element>
+  </scrollbar_container>
+  <message_box>
+    <frame stretch="1">
+      <texture>ui_experience_stroketextbox_black</texture>
+    </frame>
+    <btn width="73.83" height="22.12" stretch="1">
+      <text align="c" font="letterica16" />
+      <texture>ui_experience_button_default</texture>
+    </btn>
+    <msg_cap stretch="1">
+      <text complex_mode="1" align="c" vert_align="c" font="letterica16" />
+    </msg_cap>
+    <msg_text_l stretch="1">
+      <text complex_mode="1" align="l" vert_align="c" font="letterica16" />
+    </msg_text_l>
+    <msg_text_c stretch="1">
+      <text complex_mode="1" align="c" vert_align="c" font="letterica16" />
+    </msg_text_c>
+    <msg_text_r stretch="1">
+      <text complex_mode="1" align="r" vert_align="c" font="letterica16" />
+    </msg_text_r>
+  </message_box>
+</w>

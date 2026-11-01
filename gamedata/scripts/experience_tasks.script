@@ -1,0 +1,590 @@
+----------------------------------------------------
+-- Experience Framework
+-- Experience Tasks Manager
+----------------------------------------------------
+
+
+local xp_tasks = nil
+function GetXPTasks()
+	return xp_tasks
+end
+
+function init_tasks()
+	if xp_tasks == nil then
+		xp_tasks = XPTasksManager()
+	end
+end
+
+
+
+----------------------------------------------------
+-- Tasks Manager Processor
+----------------------------------------------------
+local curr_tasks = {}
+local prev_tasks = {}
+local last_ctime = nil
+
+class "XPTasksManager"
+function XPTasksManager:__init()
+	self.is_started = false
+	self.send_news = true
+	self.autocomplete = false
+	self.refresh_time = 86400
+	self.reward_type = "all"
+	self.tasks = {}
+	self.total_tasks = 0
+
+	self:InitTasks()
+	self:UpdateSettings()
+	RegisterScriptCallback("experience_on_option_change", self)
+end
+
+function XPTasksManager:InitTasks()
+	empty_table(self.tasks)
+	self.total_tasks = 0
+	local ini_tasks = ini_file("experience_framework\\tasks\\_includes.ltx")
+
+	ini_tasks:section_for_each(function(section)
+		local trgt				= ini_tasks:r_string_ex(section, "targets") or ""
+		local money_reward		= ini_tasks:r_float_ex(section, "money_reward") or nil
+		local exp_reward		= ini_tasks:r_float_ex(section, "exp_reward") or nil
+
+		trgt = str_explode(trgt, ",")
+		local target_min = tonumber(trgt[1])
+		local target_max = tonumber(trgt[2])
+
+		if (target_min and target_max and (money_reward or exp_reward)) then
+			target_min = math.floor(target_min)
+			target_min = target_min < 1 and 1 or target_min
+
+			target_max = math.floor(target_max)
+			target_max = target_max < target_min and target_min or target_max
+
+			money_reward = money_reward and math.floor(money_reward)
+			exp_reward = exp_reward and math.floor(exp_reward)
+
+			self.tasks[section] = {}
+			self.tasks[section].icon = ini_tasks:r_string_ex(section, "icon") or nil
+			self.tasks[section].targets = {min = target_min, max = target_max}
+			self.tasks[section].rewards = {}
+			self.tasks[section].path = {}
+			if money_reward then
+				self.tasks[section].rewards.money = money_reward
+				self.tasks[section].path.money = ini_tasks:r_string_ex(section, "money_setting") or nil
+			end
+			if exp_reward then
+				self.tasks[section].rewards.exp = exp_reward
+				self.tasks[section].path.exp = ini_tasks:r_string_ex(section, "exp_setting") or nil
+			end
+
+			self.total_tasks = self.total_tasks + 1
+		end
+	end)
+end
+
+function XPTasksManager:UpdateSettings()
+	self.send_news = experience_options.Get("Tasks/SEND_NEWS")
+	self.autocomplete = experience_options.Get("Tasks/AUTOCOMPLETE")
+	self.refresh_time = experience_options.Get("Tasks/REFRESH_TIME") * 3600
+	self.reward_type = experience_options.Get("Tasks/REWARDS_TYPE")
+
+	for k,v in pairs(self.tasks) do
+		if v.path.money then
+			self.tasks[k].rewards.money = experience_options.Get(v.path.money)
+		end
+		if v.path.exp then
+			self.tasks[k].rewards.exp = experience_options.Get(v.path.exp)
+		end
+	end
+
+	if experience_options.Get("Tasks/ENABLE_TASKS") then
+		self:Start()
+	else
+		self:Stop()
+	end
+	self:UpdateAutocomplete()
+end
+
+function XPTasksManager:RegisterCallbacks()
+	RegisterScriptCallback("save_state", self)
+	RegisterScriptCallback("actor_on_update", self)
+end
+
+function XPTasksManager:UnregisterCallbacks()
+	UnregisterScriptCallback("save_state", self)
+	UnregisterScriptCallback("actor_on_update", self)
+end
+
+function XPTasksManager:Start()
+	if self:IsStarted() then
+		return
+	end
+
+	if self.total_tasks == 0 then
+		experience_dbg.WriteDebug(2, "Failed to start Tasks Manager. | No tasks found!")
+		return
+	end
+
+	self.is_started = true
+	self:load_state(alife_storage_manager.get_state())
+	if is_empty(curr_tasks) or not last_ctime then
+		self:Refresh()
+	end
+	self:RegisterCallbacks()
+end
+
+function XPTasksManager:Stop()
+	if not self:IsStarted() then
+		return
+	end
+
+	self.is_started = false
+	self:UnregisterCallbacks()
+	self:save_state(alife_storage_manager.get_state())
+end
+
+function XPTasksManager:IsStarted()
+	return self.is_started
+end
+
+function XPTasksManager:UpdateAutocomplete()
+	if not (self:IsStarted() and self.autocomplete) then
+		return
+	end
+	for id, v in pairs(curr_tasks) do
+		if v.is_done and not v.is_completed then
+			self:SendAutocompleteReward(id)
+		end
+	end
+end
+
+function XPTasksManager:Refresh(ct)
+	if not self:IsStarted() then
+		return
+	end
+
+	last_ctime = ct or game.get_game_time()
+	empty_table(curr_tasks)
+	local actor_prestige = experience_utils.GetActorPrestige()
+    local max_tasks
+    if experience_options.Get("Tasks/COUNT_BY_PRESTIGE", false) then
+        max_tasks = clamp(actor_prestige + 2, 2, 12)
+    else
+        max_tasks = clamp(math.floor(tonumber(experience_options.Get("Tasks/FIXED_TASK_COUNT", 4)) or 4), 1, 12)
+    end
+	local force_flag = max_tasks >= math.ceil(self.total_tasks / 3)					-- Allow to select previous tasks
+	local diff_mult = 1 + actor_prestige * 0.4										-- Tasks will increase in difficulty by 40% per each prestige level
+	local cnt = 0
+
+	-- Allow to select the repetitive tasks if there are fewer of them than necessary
+	if max_tasks > self.total_tasks then
+		max_tasks = self.total_tasks
+		force_flag = true
+	end
+
+	while cnt < max_tasks do
+		local key = random_key_table(self.tasks)
+		if (not curr_tasks[key] and (force_flag or not prev_tasks[key])) then
+			local task = self.tasks[key]
+			local targets = math.random(math.floor(task.targets.min * diff_mult), math.floor(task.targets.max * diff_mult))
+			local reward_key
+			if self.reward_type == "all" or not task.rewards[self.reward_type] then
+				reward_key = random_key_table(task.rewards)
+			else
+				reward_key = self.reward_type
+			end
+
+			local reward_amount = math.floor(task.rewards[reward_key] * targets)
+			if reward_key == "exp" then
+				reward_amount = math.floor(reward_amount * experience_options.Get("Main/GLOBAL_EXPERIENCE_MULT"))
+			end
+
+			curr_tasks[key] = {
+				is_done = false,
+				is_completed = false,
+				curr_targets = 0,
+				max_targets = targets,
+				reward = {reward_key, reward_amount}
+			}
+			cnt = cnt + 1
+		end
+	end
+
+	empty_table(prev_tasks)
+	for k,v in pairs(curr_tasks) do
+		prev_tasks[k] = true
+		experience_dbg.WriteDebug(7, "New Current Task: %s, Targets: %s, Reward: %s %s", k, v.max_targets, v.reward[2], v.reward[1])
+	end
+
+	self:SendNews("refresh")
+end
+
+function XPTasksManager:SendEvent(task_id, amt)
+	if not self:IsStarted() or not curr_tasks[task_id] or curr_tasks[task_id].is_done then
+		return
+	end
+
+	local amount = amt or 1
+	local task = curr_tasks[task_id]
+	task.curr_targets = clamp(task.curr_targets + amount, 0, task.max_targets)
+
+	if task.curr_targets == task.max_targets then
+		task.is_done = true
+		if self.autocomplete then
+			self:SendAutocompleteReward(task_id)
+		else
+			self:SendNews("task_done", task_id, self:GetTaskIcon(task_id))
+		end
+	end
+end
+
+function XPTasksManager:SendNews(typ, task_id, icon, delay, text, snd, news_id)
+	if not self.send_news then
+		return
+	end
+
+	local text = text
+	local snd = snd
+	local news_id = news_id
+
+	if (not typ and text and snd and news_id) then
+		CreateTimeEvent("experience_framework", news_id, delay or 3, function()
+			db.actor:give_game_news(game.translate_string("st_tip"), text, icon or "ui_icon_news_trx_death_report", 0, 6000, 0)
+			experience_sounds.Play(snd, db.actor)
+			return true
+		end)
+		return
+	end
+
+	if typ == "refresh" then
+		text = game.translate_string("st_xp_tasks_manager_news_refresh_msg")
+		snd = "task_refreshed_1"
+		news_id = "send_task_news_tasks_refreshed"
+
+	elseif (typ == "task_done" and task_id) then
+		text = strformat(game.translate_string("st_xp_tasks_manager_news_task_done_msg"), self:GetTaskName(task_id))
+		snd = "task_done_1"
+		news_id = "send_task_news_task_" .. task_id .. "_done"
+	end
+
+	if (text and snd and news_id) then
+		CreateTimeEvent("experience_framework", news_id, delay or 3, function()
+			db.actor:give_game_news(game.translate_string("st_tip"), text, icon or "ui_icon_news_trx_death_report", 0, 6000, 0)
+			experience_sounds.Play(snd, db.actor)
+			return true
+		end)
+	end
+end
+
+function XPTasksManager:SendReward(task_id)
+	if not self:IsStarted() or not curr_tasks[task_id] or not curr_tasks[task_id].is_done or curr_tasks[task_id].is_completed then
+		return
+	end
+
+	local reward_key = curr_tasks[task_id].reward[1]
+	local reward_amount = curr_tasks[task_id].reward[2]
+	if reward_key == "money" then
+		db.actor:give_money(reward_amount)
+		--news_manager.relocate_money(db.actor, "in", reward_amount)
+	elseif reward_key == "exp" then
+		experience_utils.IncreaseExperience(reward_amount, nil, true)
+	end
+
+	curr_tasks[task_id].is_completed = true
+end
+
+function XPTasksManager:SendAutocompleteReward(task_id)
+	if not self:IsStarted() or not curr_tasks[task_id] or not curr_tasks[task_id].is_done or curr_tasks[task_id].is_completed then
+		return
+	end
+
+	local function get_reward(id, key, amount)
+		local msg_sound = "on_task_completed_1"
+		local msg_id = "send_task_news_task_" .. id .. "_completed"
+		local rwrd_prefix = ""
+
+		if key == "money" then
+			db.actor:give_money(amount)
+			--news_manager.relocate_money(db.actor, "in", amount)
+			rwrd_prefix = " RUB"
+		elseif key == "exp" then
+			experience_utils.IncreaseExperience(amount, nil, true)
+			rwrd_prefix = " XP"
+		end
+
+		local msg_text = strformat(game.translate_string("st_xp_tasks_manager_news_task_completed_msg"), self:GetTaskName(id), amount .. rwrd_prefix)
+		self:SendNews(nil, nil, self:GetTaskIcon(id), 0, msg_text, msg_sound, msg_id)
+
+		return true
+	end
+
+	curr_tasks[task_id].is_completed = true
+	CreateTimeEvent("experience_framework", "tasks_autocomplete_delay_" .. task_id, 3, get_reward, task_id, curr_tasks[task_id].reward[1], curr_tasks[task_id].reward[2])
+end
+
+function XPTasksManager:GetTaskName(task_id)
+	return game.translate_string("st_xp_tasks_manager_" .. task_id .. "_name")
+end
+
+function XPTasksManager:GetTaskIcon(task_id)
+	return self.tasks[task_id] and self.tasks[task_id].icon or "ui_icon_news_trx_common"
+end
+
+function XPTasksManager:GetCurrentTasks()
+	if self:IsStarted() then
+		return dup_table(curr_tasks)
+	end
+end
+
+function XPTasksManager:GetRemainingTime()
+	if self:IsStarted() then
+		return math.floor(self.refresh_time - game.get_game_time():diffSec(last_ctime))
+	end
+end
+
+function XPTasksManager:save_state(m_data)
+	if not m_data.experience_framework_savedata then
+		m_data.experience_framework_savedata = {}
+	end
+	if not m_data.experience_framework_savedata.tasks_manager then
+		m_data.experience_framework_savedata.tasks_manager = {}
+	end
+	m_data.experience_framework_savedata.tasks_manager.curr_tasks = curr_tasks
+	m_data.experience_framework_savedata.tasks_manager.prev_tasks = prev_tasks
+	m_data.experience_framework_savedata.tasks_manager.last_ctime = last_ctime and utils_data.CTime_to_table(last_ctime)
+end
+
+function XPTasksManager:load_state(m_data)
+	if (m_data.experience_framework_savedata and m_data.experience_framework_savedata.tasks_manager) then
+		curr_tasks = m_data.experience_framework_savedata.tasks_manager.curr_tasks
+		prev_tasks = m_data.experience_framework_savedata.tasks_manager.prev_tasks
+		last_ctime = m_data.experience_framework_savedata.tasks_manager.last_ctime
+
+		if last_ctime then
+			last_ctime = utils_data.CTime_from_table(last_ctime)
+		end
+
+		-- Refresh tasks if at least one saved task no longer exists
+		for k in pairs(curr_tasks) do
+			if not self.tasks[k] then
+				empty_table(curr_tasks)
+				empty_table(prev_tasks)
+				last_ctime = nil
+				break
+			end
+		end
+	end
+end
+
+function XPTasksManager:actor_on_update()
+	local ctime = game.get_game_time()
+	if ctime:diffSec(last_ctime) < self.refresh_time then
+		return
+	end
+	self:Refresh(ctime)
+end
+
+function XPTasksManager:experience_on_option_change()
+	self:UpdateSettings()
+end
+
+
+
+----------------------------------------------------
+GUI = nil
+function get_ui(owner, xml)
+    if GUI == nil then
+        GUI = UIExperienceTasks(owner, xml)
+    end
+    return GUI
+end
+----------------------------------------------------
+-- Class "UIExperienceTasks"
+----------------------------------------------------
+class "UIExperienceTasks" (CUIWindow)
+function UIExperienceTasks:__init(owner, xml) super()
+	self.owner = owner
+    self.xml = xml
+	self.clr = owner.clr
+	self.cc = {}
+
+    self:InitControls()
+end
+
+function UIExperienceTasks:InitControls()
+	local xml = self.xml
+
+	self.dialog                                 = xml:InitStatic("tasks_wnd:frame", self)
+	self.tasks_scrollbar						= xml:InitScrollView("tasks_wnd:tasks_scrollbar", self.dialog)
+
+	for i=1, GetXPTasks().total_tasks do
+		self.cc[i] = {}
+		self.cc[i].id		= nil
+		self.cc[i].wnd		= xml:InitFrame("tasks_wnd:st", nil)
+		self.cc[i].icon		= xml:InitStatic("tasks_wnd:icon_cap", self.cc[i].wnd)
+		self.cc[i].name		= xml:InitTextWnd("tasks_wnd:name_cap", self.cc[i].wnd)
+		self.cc[i].rwrd		= xml:InitTextWnd("tasks_wnd:reward_cap", self.cc[i].wnd)
+		self.cc[i].btn_b	= xml:InitFrame("tasks_wnd:task_button:btn_frame", self.cc[i].wnd)
+		self.cc[i].btn		= xml:Init3tButton("tasks_wnd:task_button:btn", self.cc[i].btn_b)
+
+		self:Register(self.cc[i].btn, "task_cell_button_" .. i)
+        local _wrapper = function(self)
+            self:OnButtonTaskComplete(i)
+        end
+		self:AddCallback("task_cell_button_" .. i, ui_events.BUTTON_CLICKED, _wrapper, self)
+		self.cc[i].wnd:Show(false)
+	end
+
+	xml:InitTextWnd								("tasks_wnd:timer_cap", self.dialog)
+	self.timer									= xml:InitTextWnd("tasks_wnd:timer", self.dialog)
+end
+
+function UIExperienceTasks:Reset()
+	if not GetXPTasks():IsStarted() then
+		self:CloseWindow(true)
+		self:SetMsg(game.translate_string("ui_experience_tasks_wnd_tasks_disabled"), 5)
+		return
+	end
+	self:FillList()
+	self:UpdateTimer()
+end
+
+function UIExperienceTasks:ClearList()
+	self.tasks_scrollbar:Clear()
+	for k in pairs(self.cc) do
+		self.cc[k].id = nil
+		self.cc[k].wnd:Show(false)
+	end
+end
+
+function UIExperienceTasks:FillList()
+	self:ClearList()
+	local tm = GetXPTasks()
+	local i = 0
+
+	for key, v in spairs(tm:GetCurrentTasks(), function(t,a,b) return tm:GetTaskName(a) < tm:GetTaskName(b) end) do
+		i = i + 1
+		local cc = self.cc[i]
+		local h = 0
+		local rwrd_prefix = v.reward[1] == "money" and " RUB" or v.reward[1] == "exp" and " XP" or ""
+
+		-- ID
+		cc.id = key
+
+		-- Icon
+		cc.icon:InitTexture(tm:GetTaskIcon(key))
+		cc.icon:SetTextureColor(self.clr.white)
+		cc.icon:SetWndPos(vector2():set( cc.icon:GetWndPos().x , 10 ))
+		h = cc.icon:GetWndPos().y + cc.icon:GetHeight() + 10
+
+		-- Name
+		cc.name:SetText(tm:GetTaskName(key) .. ": " .. v.curr_targets .. "/" .. v.max_targets)
+		cc.name:AdjustHeightToText()
+		cc.name:SetTextColor(self.clr.orange)
+		cc.name:SetWndPos(vector2():set( cc.name:GetWndPos().x , h ))
+		h = cc.name:GetWndPos().y + cc.name:GetHeight() + 10
+
+		-- Reward
+		cc.rwrd:SetText(game.translate_string("ui_experience_tasks_wnd_reward_cap") .. " " .. v.reward[2] .. rwrd_prefix)
+		cc.rwrd:SetTextColor(self.clr.cyan)
+		cc.rwrd:SetWndPos(vector2():set( cc.rwrd:GetWndPos().x , h ))
+		h = cc.rwrd:GetWndPos().y + cc.rwrd:GetHeight() + 5
+
+		-- Button
+		cc.btn_b:SetWndPos(vector2():set( cc.btn_b:GetWndPos().x , h ))
+		h = cc.btn_b:GetWndPos().y + cc.btn_b:GetHeight() + 5
+
+		-- Resize and add to scrollbar
+		cc.wnd:Show(true)
+		cc.wnd:SetWndSize(vector2():set( cc.wnd:GetWidth() , h ))
+		self.tasks_scrollbar:AddWindow(cc.wnd, true)
+		cc.wnd:SetAutoDelete(false)
+
+		if v.is_done then
+			if v.is_completed then
+				self:DisableTask(i)
+			else
+				cc.btn_b:Show(true)
+			end
+		else
+			cc.btn_b:Show(false)
+		end
+	end
+end
+
+function UIExperienceTasks:UpdateTimer()
+	local h = game.translate_string("ui_experience_tasks_wnd_timer_hours")
+	local m = game.translate_string("ui_experience_tasks_wnd_timer_minutes")
+	local sec = GetXPTasks():GetRemainingTime()
+
+	if sec <= 0 then
+		self.timer:SetText("00" .. h .. " 00" .. m)
+		return
+	end
+	local hrs = math.floor(sec / 3600)
+	local min = math.floor((sec - hrs * 3600) / 60)
+	self.timer:SetText((hrs < 10 and "0" .. hrs or hrs) .. h .. " " .. (min < 10 and "0" .. min or min) .. m)
+end
+
+function UIExperienceTasks:OnButtonTaskComplete(idx)
+	local tm = GetXPTasks()
+	local task_id = self.cc[idx].id
+	tm:SendReward(task_id)
+	self:UpdateActorStats()
+	self:SetMsg(strformat(game.translate_string("ui_experience_tasks_wnd_task_completed_msg"), tm:GetTaskName(task_id), self.cc[idx].rwrd:GetText()), 7)
+	self:DisableTask(idx)
+	self:PlaySND("on_task_completed_1")
+	self:PlayPPFX("green", 220)
+end
+
+function UIExperienceTasks:DisableTask(idx)
+	self.cc[idx].icon:SetTextureColor(self.clr.black)
+	self.cc[idx].name:SetTextColor(self.clr.black)
+	self.cc[idx].rwrd:SetText(game.translate_string("ui_experience_tasks_wnd_task_completed"))
+	self.cc[idx].rwrd:SetTextColor(self.clr.black)
+	self.cc[idx].btn_b:Show(false)
+end
+
+-- Called from experience_ui.UIExperienceMenu.OnKeyboard
+function UIExperienceTasks:OnKeyboard(res, dik, keyboard_action)
+    if res == false then
+        if keyboard_action == ui_events.WINDOW_KEY_PRESSED then
+            if dik == DIK_keys.DIK_ESCAPE then
+                self:CloseWindow()
+            end
+        end
+    end
+end
+
+function UIExperienceTasks:CloseWindow(dont_play_sound)
+	self.owner:CloseCurrentWindow(dont_play_sound)
+end
+
+-- Called from experience_ui.UIExperienceMenu.CloseCurrentWindow
+function UIExperienceTasks:Close()
+    self:Show(false)
+end
+
+function UIExperienceTasks:Register(obj, id)
+    self.owner:Register(obj, "tasks_wnd_" .. id)
+end
+
+function UIExperienceTasks:AddCallback(id, action, functor, obj)
+    self.owner:AddCallback("tasks_wnd_" .. id, action, functor, obj)
+end
+
+function UIExperienceTasks:UpdateActorStats()
+    self.owner:UpdateActorStats()
+end
+
+function UIExperienceTasks:PlaySND(key)
+    self.owner:PlaySND(key)
+end
+
+function UIExperienceTasks:SetMsg(text, tmr, align)
+    self.owner:SetMsg(text, tmr, align)
+end
+
+function UIExperienceTasks:PlayPPFX(clr_id, start_alpha, clr_table, looped)
+    self.owner:PlayPPFX(clr_id, start_alpha, clr_table, looped)
+end

@@ -1,0 +1,48 @@
+-- Hero: buy prices lower, sell prices higher, level 5 also cheaper technician upgrades.
+-- Values are absolute per level (not cumulative).
+local BUY  = { [0] = 0, 0.05, 0.07, 0.10, 0.13, 0.15 }
+local SELL = { [0] = 0, 0,    0.15, 0.25, 0.33, 0.33 }
+local UPGRADE_DISCOUNT, UPGRADE_LEVEL = 0.25, 5
+
+local function round(n) return math.floor(n + 0.5) end
+local function lvl() return rpg_gamma_patch.lvl("perk_hero") end
+
+-- Trade profile modes describe the trader side in this GAMMA setup:
+-- 1 = trader sells (actor buys), 2 = trader buys (actor sells).
+local function hero_cost(kind, obj, profile, calculated_cost, ret)
+	local l = lvl()
+	if l <= 0 or not profile then return end
+	local cur = ret.new_cost or calculated_cost
+	if type(cur) ~= "number" then return end
+	if profile.mode == 1 and BUY[l] > 0 then
+		ret.new_cost = math.ceil(cur * (1 - BUY[l]))
+	elseif profile.mode == 2 and SELL[l] > 0 then
+		ret.new_cost = math.floor(cur * (1 + SELL[l]))
+	else
+		return
+	end
+	-- keep Silver Tongued's trade-XP table in sync
+	local b = z_cxv_experience_perk_bartering
+	if b and b.item_costs then b.item_costs[obj:id()] = ret.new_cost end
+end
+
+local function patch_upgrades()
+	if not inventory_upgrades then return end
+	local base_cost = inventory_upgrades.get_upgrade_cost
+
+	if base_cost then	-- price shown in the upgrade window (engine reads it as a string)
+		inventory_upgrades.get_upgrade_cost = function(section, ...)
+			local r = base_cost(section, ...)
+			local n = tonumber(r)
+			if lvl() < UPGRADE_LEVEL or not n then return r end
+			local d = round(n * (1 - UPGRADE_DISCOUNT))
+			return type(r) == "number" and d or tostring(d)
+		end
+	end
+
+end
+
+function on_game_start()
+	RegisterScriptCallback("on_get_item_cost", hero_cost)
+	patch_upgrades()
+end

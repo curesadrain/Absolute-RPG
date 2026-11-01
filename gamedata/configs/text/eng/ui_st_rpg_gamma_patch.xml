@@ -1,0 +1,201 @@
+<?xml version='1.0' encoding='windows-1251'?>
+<string_table>
+	<string id="st_perk_museum_exhibit">
+		<text>Museum Piece</text>
+	</string>
+	<string id="st_perk_museum_exhibit_desc">
+		<text>Every object in your collection belongs to a location, a patrol and a return story. Beyond the Perimeter they are curiosities; to you they are carefully preserved records of field work.</text>
+	</string>
+	<string id="st_perk_marathoner">
+		<text>Marathoner</text>
+	</string>
+	<string id="st_perk_marathoner_desc">
+		<text>A movement starts with controlled breathing and ends only inside your own perimeter. You maintain pace under a pack and keep a reserve for the final sprint no plan can predict.</text>
+	</string>
+	<string id="st_perk_hero">
+		<text>Hero</text>
+	</string>
+	<string id="st_perk_hero_desc">
+		<text>The trader remembers who brought the shipment through; the technician remembers who went back for a partner. Your record has entered local conversation, and people behind the counter take it into account.</text>
+	</string>
+	<string id="st_perk_inner_pockets">
+		<text>Inner Pockets</text>
+	</string>
+	<string id="st_perk_inner_pockets_desc">
+		<text>Your kit has been reworked around your routine: nothing swings loose or catches during a change of position. Even the lining has room for equipment best kept close.</text>
+	</string>
+	<string id="st_perk_neat_freak">
+		<text>Neat Freak</text>
+	</string>
+	<string id="st_perk_neat_freak_desc">
+		<text>After every patrol, you inspect seams, fastenings and component condition. Armour lasts because small wear is dealt with before it becomes a serious failure.</text>
+	</string>
+	<string id="st_perk_noosphere_link">
+		<text>Noosphere Link</text>
+	</string>
+	<string id="st_perk_noosphere_link_desc">
+		<text>At some point, hunger and thirst stopped cutting through the quiet hum in your head. Rations remain in your rig out of habit, but your body draws what it needs from another source.</text>
+	</string>
+	<string id="st_perk_museum_exhibit_desc_1">
+		<text>Every object in your collection belongs to a location, a patrol and a return story. Beyond the Perimeter they are curiosities; to you they are carefully preserved records of field work.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Payment per exhibit: %c[d_green]+10 RU%c[ui_gray_2] (level bonuses do not stack)\n
+%c[d_red] - %c[ui_gray_2] %c[d_red]Requires the "The Collector" mod to work\n
+</text>
+	</string>
+	<string id="st_perk_museum_exhibit_desc_2">
+		<text>Every object in your collection belongs to a location, a patrol and a return story. Beyond the Perimeter they are curiosities; to you they are carefully preserved records of field work.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Payment per exhibit: %c[d_green]+25 RU%c[ui_gray_2] (level bonuses do not stack)\n
+%c[d_red] - %c[ui_gray_2] %c[d_red]Requires the "The Collector" mod to work\n
+</text>
+	</string>
+	<string id="st_perk_museum_exhibit_desc_3">
+		<text>Every object in your collection belongs to a location, a patrol and a return story. Beyond the Perimeter they are curiosities; to you they are carefully preserved records of field work.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Payment per exhibit: %c[d_green]+50 RU%c[ui_gray_2] (level bonuses do not stack)\n
+%c[d_red] - %c[ui_gray_2] %c[d_red]Requires the "The Collector" mod to work\n
+</text>
+	</string>
+	<string id="st_perk_museum_exhibit_desc_4">
+		<text>Every object in your collection belongs to a location, a patrol and a return story. Beyond the Perimeter they are curiosities; to you they are carefully preserved records of field work.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Payment per exhibit: %c[d_green]+100 RU%c[ui_gray_2] (level bonuses do not stack)\n
+%c[d_red] - %c[ui_gray_2] %c[d_red]Requires the "The Collector" mod to work\n
+</text>
+	</string>
+	<string id="st_perk_museum_exhibit_desc_5">
+		<text>Every object in your collection belongs to a location, a patrol and a return story. Beyond the Perimeter they are curiosities; to you they are carefully preserved records of field work.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Payment per exhibit: %c[d_green]+250 RU%c[ui_gray_2] (level bonuses do not stack)\n
+%c[d_blue] - %c[ui_gray_2] Time until payout is %c[d_green]10 minutes%c[ui_gray_2] shorter\n
+%c[d_red] - %c[ui_gray_2] %c[d_red]Requires the "The Collector" mod to work\n
+</text>
+	</string>
+	<string id="st_perk_marathoner_desc_1">
+		<text>A movement starts with controlled breathing and ends only inside your own perimeter. You maintain pace under a pack and keep a reserve for the final sprint no plan can predict.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Movement speed: %c[d_green]+1%\n
+</text>
+	</string>
+	<string id="st_perk_marathoner_desc_2">
+		<text>A movement starts with controlled breathing and ends only inside your own perimeter. You maintain pace under a pack and keep a reserve for the final sprint no plan can predict.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Movement speed: %c[d_green]+2%\n
+</text>
+	</string>
+	<string id="st_perk_marathoner_desc_3">
+		<text>A movement starts with controlled breathing and ends only inside your own perimeter. You maintain pace under a pack and keep a reserve for the final sprint no plan can predict.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Movement speed: %c[d_green]+3%\n
+</text>
+	</string>
+	<string id="st_perk_marathoner_desc_4">
+		<text>A movement starts with controlled breathing and ends only inside your own perimeter. You maintain pace under a pack and keep a reserve for the final sprint no plan can predict.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Movement speed: %c[d_green]+5%\n
+</text>
+	</string>
+	<string id="st_perk_marathoner_desc_5">
+		<text>A movement starts with controlled breathing and ends only inside your own perimeter. You maintain pace under a pack and keep a reserve for the final sprint no plan can predict.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Movement speed: %c[d_green]+7%\n
+%c[d_blue] - %c[ui_gray_2] Stamina regeneration: %c[d_green]+33%\n
+</text>
+	</string>
+	<string id="st_perk_hero_desc_1">
+		<text>The trader remembers who brought the shipment through; the technician remembers who went back for a partner. Your record has entered local conversation, and people behind the counter take it into account.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Buy prices lower by %c[d_green]5%\n
+</text>
+	</string>
+	<string id="st_perk_hero_desc_2">
+		<text>The trader remembers who brought the shipment through; the technician remembers who went back for a partner. Your record has entered local conversation, and people behind the counter take it into account.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Buy prices lower by %c[d_green]7%\n
+%c[d_blue] - %c[ui_gray_2] Sell prices higher by %c[d_green]15%\n
+</text>
+	</string>
+	<string id="st_perk_hero_desc_3">
+		<text>The trader remembers who brought the shipment through; the technician remembers who went back for a partner. Your record has entered local conversation, and people behind the counter take it into account.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Buy prices lower by %c[d_green]10%\n
+%c[d_blue] - %c[ui_gray_2] Sell prices higher by %c[d_green]25%\n
+</text>
+	</string>
+	<string id="st_perk_hero_desc_4">
+		<text>The trader remembers who brought the shipment through; the technician remembers who went back for a partner. Your record has entered local conversation, and people behind the counter take it into account.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Buy prices lower by %c[d_green]13%\n
+%c[d_blue] - %c[ui_gray_2] Sell prices higher by %c[d_green]33%\n
+</text>
+	</string>
+	<string id="st_perk_hero_desc_5">
+		<text>The trader remembers who brought the shipment through; the technician remembers who went back for a partner. Your record has entered local conversation, and people behind the counter take it into account.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Buy prices lower by %c[d_green]15%\n
+%c[d_blue] - %c[ui_gray_2] Sell prices higher by %c[d_green]33%\n
+%c[d_blue] - %c[ui_gray_2] Technician upgrade prices lower by %c[d_green]25%\n
+\n%c[d_red]The level 5 upgrade discount requires Mechanics Do Upgrades Again.\n%c[ui_gray_2]
+</text>
+	</string>
+	<string id="st_perk_inner_pockets_desc_1">
+		<text>Your kit has been reworked around your routine: nothing swings loose or catches during a change of position. Even the lining has room for equipment best kept close.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Artefact slots: %c[d_green]+1\n
+</text>
+	</string>
+	<string id="st_perk_inner_pockets_desc_2">
+		<text>Your kit has been reworked around your routine: nothing swings loose or catches during a change of position. Even the lining has room for equipment best kept close.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Artefact slots: %c[d_green]+2\n
+</text>
+	</string>
+	<string id="st_perk_noosphere_link_desc_1">
+		<text>At some point, hunger and thirst stopped cutting through the quiet hum in your head. Rations remain in your rig out of habit, but your body draws what it needs from another source.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] The need for food and drink %c[d_green]disappears entirely\n
+%c[d_blue] - %c[ui_gray_2] Satiety and thirst no longer drop\n
+</text>
+	</string>
+	<string id="st_perk_neat_freak_desc_1">
+		<text>After every patrol, you inspect seams, fastenings and component condition. Armour lasts because small wear is dealt with before it becomes a serious failure.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Worn armor components never degrade below %c[d_green]45%\n
+</text>
+	</string>
+	<string id="st_perk_neat_freak_desc_2">
+		<text>After every patrol, you inspect seams, fastenings and component condition. Armour lasts because small wear is dealt with before it becomes a serious failure.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Worn armor components never degrade below %c[d_green]50%\n
+</text>
+	</string>
+	<string id="st_perk_neat_freak_desc_3">
+		<text>After every patrol, you inspect seams, fastenings and component condition. Armour lasts because small wear is dealt with before it becomes a serious failure.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Worn armor components never degrade below %c[d_green]60%\n
+</text>
+	</string>
+	<string id="st_perk_neat_freak_desc_4">
+		<text>After every patrol, you inspect seams, fastenings and component condition. Armour lasts because small wear is dealt with before it becomes a serious failure.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Worn armor components never degrade below %c[d_green]60%\n
+%c[d_blue] - %c[ui_gray_2] Also applies to helmets\n
+</text>
+	</string>
+	<string id="st_perk_neat_freak_desc_5">
+		<text>After every patrol, you inspect seams, fastenings and component condition. Armour lasts because small wear is dealt with before it becomes a serious failure.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Worn armor components never degrade below %c[d_green]60%\n
+%c[d_blue] - %c[ui_gray_2] Also applies to helmets\n
+%c[d_blue] - %c[ui_gray_2] Overall armor and helmet wear is %c[d_green]50%%c[ui_gray_2] slower\n
+</text>
+	</string>
+	<string id="st_perk_perkifact_power_desc_4">
+		<text>Some artefacts reveal their properties only to someone with the right training. You do not ask the Zone for an explanation. You test your equipment in the field and remember the result.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] On kill, repair equipped perk-based artefacts (%c[yellow]perkifacts%c[ui_gray_2]) by 3% divided by your total equipped perkifact count\n
+%c[d_blue] - %c[ui_gray_2] Perkifact effects behave as if you are wearing %c[d_green]four additional copies\n
+%c[d_blue] - %c[ui_gray_2] For instance, wearing 1 "Signet" acts as %c[d_green]5 "Signets"\n
+%c[d_red] - %c[ui_gray_2] Neither the "Knot" nor the "Lucifer" benefit from this perk\n
+</text>
+	</string>
+	<string id="st_perk_glass_cannon_desc_4">
+		<text>Pain narrows the world to the front sight, the nearest cover and the next shot. You know how to operate on that edge, though no medic in the Zone would call it sound tactics.\n \n%c[ui_gray_3]EFFECTS:\n
+%c[d_blue] - %c[ui_gray_2] Damage bonus starts at full health: %c[d_green]+10% at 100% HP%c[ui_gray_2]\n
+%c[d_blue] - %c[ui_gray_2] The lower your health, the higher the bonus: %c[d_green]+40.7% at 80% HP%c[ui_gray_2], %c[d_green]+90.2% at 50% HP%c[ui_gray_2], %c[d_green]+178.5% at 1% HP%c[ui_gray_2]\n
+%c[d_blue] - %c[ui_gray_2] The 80% health cap is removed: you can heal to %c[d_green]100% HP%c[ui_gray_2]\n
+</text>
+	</string>
+	<string id="st_perk_quick_aim">
+		<text>Quick Aim</text>
+	</string>
+	<string id="st_perk_quick_aim_desc">
+		<text>The weapon comes up where your eyes already are. You build the stance early and bring the sight onto the target line without spending the contact window searching for a comfortable position.</text>
+	</string>
+	<string id="st_perk_quick_aim_desc_1">
+		<text>The weapon comes up where your eyes already are. You build the stance early and bring the sight onto the target line without spending the contact window searching for a comfortable position.\n \n%c[ui_gray_3]EFFECTS:\n%c[d_blue] - %c[ui_gray_2]Aim-in and aim-out transition time reduced by %c[d_green]10%.\n%c[ui_gray_2]Preserves handling and attachment modifiers. Transition animation bonus applies after Fast Hands.</text>
+	</string>
+	<string id="st_perk_quick_aim_desc_2">
+		<text>The weapon comes up where your eyes already are. You build the stance early and bring the sight onto the target line without spending the contact window searching for a comfortable position.\n \n%c[ui_gray_3]EFFECTS:\n%c[d_blue] - %c[ui_gray_2]Aim-in and aim-out transition time reduced by %c[d_green]20%.\n%c[ui_gray_2]Preserves handling and attachment modifiers. Transition animation bonus applies after Fast Hands.</text>
+	</string>
+	<string id="st_perk_quick_aim_desc_3">
+		<text>The weapon comes up where your eyes already are. You build the stance early and bring the sight onto the target line without spending the contact window searching for a comfortable position.\n \n%c[ui_gray_3]EFFECTS:\n%c[d_blue] - %c[ui_gray_2]Aim-in and aim-out transition time reduced by %c[d_green]30%.\n%c[ui_gray_2]Preserves handling and attachment modifiers. Transition animation bonus applies after Fast Hands.</text>
+	</string>
+</string_table>

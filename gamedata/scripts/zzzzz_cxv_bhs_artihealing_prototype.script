@@ -1,0 +1,156 @@
+-- Absolute RPG: Symbiosis perk.
+-- Adapted from Artefact-Limb-Healing---ilrathCXV, Copyright (c) 2023 ilrathCXV.
+-- MIT licence is included in licenses/Artefact_Limb_Healing_LICENSE.txt.
+-- This replaces the original standalone script, not BHS or artefact scripts.
+local PARTS = {"head", "torso", "rightarm", "leftarm", "rightleg", "leftleg"}
+local BASE_TIME_MS = 75000
+local UPDATE_MS = 1000
+local progress, last_time, next_update = 0, nil, 0
+
+local INDOOR = {
+    jupiter_underground=true, l03u_agr_underground=true, l04u_labx18=true,
+    l08u_brainlab=true, l10u_bunker=true, l12u_control_monolith=true,
+    l12u_sarcofag=true, l13u_warlab=true, labx8=true
+}
+
+local function number(value, fallback)
+    return type(value)=="number" and value==value and value or fallback
+end
+
+local function condition(obj)
+    return math.max(0, math.min(1, number(obj:condition(), 0)))
+end
+
+local function section(obj)
+    -- Standard Anomaly artefact-container section aliases.
+    return obj:section():gsub("_af_iam$", ""):gsub("_af_aac$", ""):gsub("_af_aam$", "")
+end
+
+function perk_active()
+    local data=experience_core and experience_core.GetSkillData("perk_symbiosis")
+    return data and data.enable and (data.curr_level or 0)>0 or false
+end
+
+function compatible_bhs()
+    local bhs=zzz_player_injuries
+    if not (bhs and type(bhs.health)=="table" and type(bhs.maxhp)=="table") then return nil end
+    for _,part in ipairs(PARTS) do
+        if type(bhs.health[part])~="number" or type(bhs.maxhp[part])~="number" or bhs.maxhp[part]<=0 then return nil end
+    end
+    return bhs
+end
+
+local function context(actor)
+    local camp=bind_campfire and bind_campfire.get_nearby_campfire and bind_campfire.get_nearby_campfire(5,true)
+    local weather=nil
+    if level_weathers and level_weathers.get_weather_manager then
+        local manager=level_weathers.get_weather_manager()
+        if manager then weather=manager:get_curr_weather() end
+    end
+    local community=get_actor_true_community and get_actor_true_community() or actor:character_community()
+    return {
+        near_campfire=camp and camp:is_on() or false,
+        hour=level.get_time_hours(), outside=not INDOOR[level.name()],
+        clear_weather=weather=="clear", sin=community=="greh" or community=="actor_greh",
+        health=math.floor(number(actor.health,1)*100+0.5)/100
+    }
+end
+
+-- Recompute from scratch: conditions, faction, weather and belt changes must
+-- never leave a previously active effect stuck on or multiply it repeatedly.
+function calculate_strength(actor, ctx)
+    local belt={}
+    local heart_count=0
+    actor:iterate_belt(function(owner,obj)
+        local sec=section(obj)
+        belt[#belt+1]={obj=obj,sec=sec,condition=condition(obj)}
+        if sec=="af_ear" then heart_count=heart_count+1 end
+    end)
+    local pba=perk_based_artefacts
+    local pba_active=pba~=nil and pba~=false
+    -- The supplied original references a nonexistent healthThreshold variable.
+    -- Current GAMMA's actual af_ear effect uses 0.22 + 0.03 * equipped count.
+    -- Honour an explicitly exposed threshold on older compatible PBA versions.
+    local heart_threshold=(pba_active and number(pba.healthThreshold,nil)) or (0.22+0.03*heart_count)
+    local daytime=ctx.hour>=5 and ctx.hour<=21
+    local total=0
+    local lucifer_on_belt=false
+    for _,item in ipairs(belt) do
+        local sec=item.sec
+        local strength=nil
+        if pba_active then
+            if sec=="af_signet" then strength=ctx.near_campfire and 0.4 or 0
+            elseif sec=="af_sun" then strength=ctx.outside and daytime and ctx.clear_weather and 0.58 or 0
+            elseif sec=="af_peas" then strength=not daytime and 0.35 or 0
+            elseif sec=="af_chelust" then strength=ctx.sin and 1 or 0.25
+            elseif sec=="af_ear" then strength=ctx.health<heart_threshold and 0.8 or 0
+            elseif sec=="af_lucifer" then strength=3;lucifer_on_belt=true
+            end
+        end
+        if strength==nil then
+            -- Ordinary healing artefacts, including their inherited container
+            -- variants, use their real configured stat rather than a stale list.
+            strength=math.max(0,number(ini_sys:r_float_ex(item.obj:section(),"health_restore_speed"),0)*1000)
+        end
+        total=total+strength*item.condition
+    end
+    if pba_active and not lucifer_on_belt then
+        local lucifer=actor:object("af_lucifer")
+        if lucifer then total=total+condition(lucifer) end
+    end
+    return total*(ctx.near_campfire and 2 or 1)
+end
+
+local function heal_tick(bhs, amount)
+    local changed=false
+    for _,part in ipairs(PARTS) do
+        local current, maximum=bhs.health[part], bhs.maxhp[part]
+        if current<maximum then
+            local healed=math.min(maximum,current+amount)
+            if healed~=current then
+                bhs.health[part]=healed
+                utils_obj.save_var(db.actor,"health."..part,healed)
+                changed=true
+            end
+        end
+    end
+    return changed
+end
+
+function reset_timer()
+    progress,last_time,next_update=0,nil,0
+end
+
+function actor_on_update()
+    local actor=db.actor
+    if not (actor and actor:alive() and perk_active()) then reset_timer();return end
+    local bhs=compatible_bhs()
+    if not bhs then reset_timer();return end
+    local now=time_global()
+    if not last_time then last_time=now;next_update=now+UPDATE_MS;return end
+    if now<next_update then return end
+    local elapsed=now-last_time
+    last_time,next_update=now,now+UPDATE_MS
+    -- Do not award a map-loading / paused-menu backlog as an instant heal.
+    if elapsed<=0 or elapsed>5000 then progress=0;return end
+    local strength=calculate_strength(actor,context(actor))
+    if strength<=0 then progress=0;return end
+    progress=progress+elapsed*strength/BASE_TIME_MS
+    if progress+0.000000001>=1 then
+        local ticks=math.floor(progress+0.000000001)
+        progress=math.max(0,progress-ticks)
+        if not heal_tick(bhs,ticks) then progress=0 end
+    end
+end
+
+function on_skill_update(id)
+    if id=="perk_symbiosis" then reset_timer() end
+end
+
+function on_game_start()
+    RegisterScriptCallback("actor_on_update",actor_on_update)
+    RegisterScriptCallback("actor_on_first_update",reset_timer)
+    RegisterScriptCallback("on_game_load",reset_timer)
+    RegisterScriptCallback("actor_on_net_destroy",reset_timer)
+    RegisterScriptCallback("experience_skill_on_update",on_skill_update)
+end

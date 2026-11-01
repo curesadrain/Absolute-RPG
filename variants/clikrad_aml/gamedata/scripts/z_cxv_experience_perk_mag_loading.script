@@ -1,0 +1,57 @@
+-- Absolute RPG: supplied CLIKRAD GMR fork, with optional AML integration.
+-- Replaces the legacy Redux per-round wrapper: never apply both mechanisms.
+local LOAD = {[0]=0, 0, .20, .44, .66, 1.00}
+local UNLOAD = {[0]=0, .33, .50, .66, .66, 1.00}
+local installed = false
+local previous_signature
+
+function perk_rank()
+    local data = experience_core and experience_core.GetSkillData("perk_mag_loader")
+    if not data or not data.enable then return 0 end
+    return math.max(0, math.min(5, math.floor(tonumber(data.curr_level) or 0)))
+end
+
+function speed_multiplier(is_unload)
+    local rank = perk_rank()
+    return 1 + (is_unload and UNLOAD[rank] or LOAD[rank])
+end
+
+function outfit_slot_bonus()
+    local rank = perk_rank()
+    if rank < 4 or not db.actor or not db.actor:item_in_slot(7) then return nil end
+    -- Rank 5 replaces rank 4, so small/medium remain +1, not +2.
+    return {small=1, medium=1, large=rank >= 5 and 1 or 0}
+end
+
+function update_slots()
+    if not db.actor or not (magazine_binder and magazine_binder.update_loadout_slots) then return end
+    local outfit = db.actor:item_in_slot(7)
+    local signature = tostring(perk_rank()) .. ":" .. tostring(outfit and outfit:id() or -1)
+    if signature ~= previous_signature then
+        previous_signature = signature
+        magazine_binder.update_loadout_slots()
+    end
+end
+
+function first_update()
+    previous_signature = nil
+    update_slots()
+end
+
+function on_game_start()
+    if installed then return end
+    if not (magazines and type(magazines.get_mag_time) == "function") then return end
+    installed = true
+    local original_time = magazines.get_mag_time
+    magazines.get_mag_time = function(section, is_unload)
+        -- The host cache and MCM values stay untouched. The perk is applied
+        -- after reading the base delay, so respec/learning never leaves a stale cache.
+        return original_time(section, is_unload) / speed_multiplier(is_unload)
+    end
+    if magazine_binder and type(magazine_binder.register_loadout_bonus) == "function" then
+        magazine_binder.register_loadout_bonus(outfit_slot_bonus)
+        RegisterScriptCallback("actor_on_first_update", first_update)
+        RegisterScriptCallback("actor_on_update", update_slots)
+        RegisterScriptCallback("experience_skill_on_update", update_slots)
+    end
+end

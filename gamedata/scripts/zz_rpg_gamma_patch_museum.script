@@ -1,0 +1,29 @@
+-- Museum Piece: requires "The Collector". If the mod is absent this file does nothing.
+if not the_collector then return end
+
+local BONUS = { [0] = 0, 10, 25, 50, 100, 250 }	-- per exhibit, NOT cumulative
+local TIME_CUT_SEC = 600						-- level 5: payout 10 minutes sooner
+local MIN_INTERVAL_SEC = 60
+
+local base_check_for_income = the_collector.check_for_income
+the_collector.check_for_income = function(...)
+	local lv = rpg_gamma_patch.lvl("perk_museum_exhibit")
+	local bonus = BONUS[lv] or 0
+	local s = the_collector.settings
+	if bonus == 0 or not s then return base_check_for_income(...) end
+	local old = s.money_per_object
+	s.money_per_object = old + bonus
+	local ok, ret = pcall(base_check_for_income, ...)
+	s.money_per_object = old		-- always restore the MCM value
+	if not ok then error(ret) end
+	return ret
+end
+
+local base_interval = the_collector.income_interval_seconds
+the_collector.income_interval_seconds = function(...)
+	local sec = base_interval(...)
+	if rpg_gamma_patch.lvl("perk_museum_exhibit") >= 5 then
+		sec = math.max(MIN_INTERVAL_SEC, sec - TIME_CUT_SEC)
+	end
+	return sec
+end

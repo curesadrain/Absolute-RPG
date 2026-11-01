@@ -1,0 +1,1750 @@
+----------------------------------------------------
+-- Experience Framework
+-- Traits System Handler and UI
+----------------------------------------------------
+
+
+
+local tr_mngr = nil
+
+function get_traits_manager()
+    return tr_mngr
+end
+
+function get_traits_table(by_keys)
+    local tbl = {}
+    if tr_mngr ~= nil then
+        for sec in spairs(tr_mngr.loaded_traits, function(t,a,b) return a < b end) do
+            if by_keys then
+                tbl[#tbl + 1] = sec
+            else
+                tbl[sec] = true
+            end
+        end
+    end
+    return tbl
+end
+
+local monsters_to_spawn_traits = {
+    ["burer"]           = true,
+    ["controller"]      = true,
+    ["snork"]           = true,
+    ["fracture"]        = true,
+    ["karlik"]          = true,
+    ["zombie"]          = true,
+    ["pseudodog"]       = true,
+    ["psy_dog"]         = true,
+    ["gigant"]          = true,
+    ["chimera"]         = true,
+    ["bloodsucker"]     = true,
+    ["psysucker"]       = true
+}
+
+local shuffle_cnt = 0
+local shuffle_max = 2
+local spawn_trait_list = {}
+function try_spawn_trait(box, typ)
+    local tr_cnt = #spawn_trait_list
+    if tr_cnt == 0 then
+        return
+    end
+
+    if math.random(1, 100) > experience_options.Get("Main/TRAITS_SPAWN_CHANCE_" .. typ) then
+        return
+    end
+
+    local amount = math.random(0, experience_options.Get("Main/MAX_SPAWN_TRAITS"))
+    if amount == 0 then
+        return
+    end
+
+    SendScriptCallback("experience_on_before_spawn_traits", box, typ, amount)
+
+    local sec
+    for i=1, amount do
+        sec = spawn_trait_list[ math.random(1, tr_cnt) ]
+        if sec then
+            if typ == "stash" or typ == "stalker" then
+                alife_create_item(sec, box)
+
+            elseif typ == "mutant" then
+                if not box[sec] then
+                    box[sec] = {count = 0}
+                end
+                box[sec].count = box[sec].count + 1
+            end
+        end
+    end
+
+    shuffle_cnt = shuffle_cnt + 1
+    if shuffle_cnt > shuffle_max then
+        shuffle_table(spawn_trait_list)
+        shuffle_cnt = 0
+    end
+end
+
+----------------------------------------------------
+-- Callbacks
+----------------------------------------------------
+local function actor_on_first_update()
+    tr_mngr = ExperienceTraitsManager()
+
+    local cnt = 0
+    for sec in pairs(tr_mngr.loaded_traits) do
+        cnt = cnt + 1
+        spawn_trait_list[cnt] = sec
+    end
+end
+
+function monster_on_loot_init(victim, loot_table)
+    local name = experience_utils.GetMutantName(victim)
+    if monsters_to_spawn_traits[name] then
+        try_spawn_trait(loot_table, "mutant")
+    end
+end
+
+local function experience_on_destroy()
+    UnregisterScriptCallback("actor_on_first_update", actor_on_first_update)
+    UnregisterScriptCallback("monster_on_loot_init", monster_on_loot_init)
+	if tr_mngr then
+        tr_mngr:unregister_callbacks()
+
+        local sim = alife()
+        for i=1, 65534 do
+            local se_obj = sim:object(i)
+            if (se_obj and tr_mngr.loaded_traits[se_obj:section_name()]) then
+                alife_release(se_obj)
+            end
+        end
+    end
+end
+
+function on_game_start()
+    if experience_utils.CanStartFramework() then
+        RegisterScriptCallback("actor_on_first_update", actor_on_first_update)
+        RegisterScriptCallback("monster_on_loot_init", monster_on_loot_init)
+        experience_error.SetRemover(experience_on_destroy)
+    end
+end
+
+
+----------------------------------------------------
+-- Traits Manager
+----------------------------------------------------
+class "ExperienceTraitsManager"
+function ExperienceTraitsManager:__init()
+    self.loaded_traits = {}
+    self.db_traits = {}
+    self.indexer = 0
+    self.descr_cache = {txt = "", id = 0, level = 0}
+    self.quality_chances = {
+        [0] = {     -- Prestige
+            0.75,
+            0.50,
+            0.15,
+            0.05,
+            0.02,
+            0.004,
+            0.002
+        },
+        [1] = {
+            0.50,
+            0.25,
+            0.30,
+            0.15,
+            0.05,
+            0.01,
+            0.005
+        },
+        [2] = {
+            0.25,
+            0.10,
+            0.45,
+            0.40,
+            0.10,
+            0.05,
+            0.02
+        },
+        [3] = {
+            0.10,
+            0.05,
+            0.40,
+            0.50,
+            0.20,
+            0.09,
+            0.05
+        },
+        [4] = {
+            0.05,
+            0.01,
+            0.25,
+            0.60,
+            0.40,
+            0.15,
+            0.10
+        }
+    }
+
+    -- Load Savedata
+    local traits_savedata = {}
+    local m_data = alife_storage_manager.get_state()
+    if (m_data and m_data.experience_framework_savedata and m_data.experience_framework_savedata.traits_savedata) then
+        traits_savedata = m_data.experience_framework_savedata.traits_savedata[1] or {}
+        self.indexer = m_data.experience_framework_savedata.traits_savedata[2] or 0
+    end
+
+    self:load_traits()
+    self:register_callbacks()
+
+    -- Absorb Traits From Inventory
+	db.actor:iterate_inventory(function(temp, obj)
+        local sec = obj:section()
+		if self.loaded_traits[sec] then
+			self:actor_on_take_trait(obj, sec)
+		end
+	end)
+
+    -- Init Saved Traits
+    for id, v in pairs(traits_savedata) do
+        if self.loaded_traits[v.section] then
+            self.db_traits[id] = trait_object(id, v.section, v.quality, self.loaded_traits[v.section], v.curr_level, v.state, v.slot)
+        end
+    end
+end
+
+function ExperienceTraitsManager:register_callbacks()
+    RegisterScriptCallback("save_state", self)
+    RegisterScriptCallback("actor_on_item_take", self)
+end
+
+function ExperienceTraitsManager:unregister_callbacks()
+    UnregisterScriptCallback("save_state", self)
+    UnregisterScriptCallback("actor_on_item_take", self)
+end
+
+function ExperienceTraitsManager:save_state(m_data)
+	if not m_data.experience_framework_savedata then
+		m_data.experience_framework_savedata = {}
+	end
+    if not m_data.experience_framework_savedata.traits_savedata then
+		m_data.experience_framework_savedata.traits_savedata = {}
+	end
+
+    local traits_savedata = {}
+    for id, tr in pairs(self.db_traits) do
+        traits_savedata[id] = tr:savedata()
+    end
+	m_data.experience_framework_savedata.traits_savedata[1] = traits_savedata
+    m_data.experience_framework_savedata.traits_savedata[2] = self.indexer
+end
+
+function ExperienceTraitsManager:actor_on_item_take(obj)
+    local sec = obj and obj:section()
+    if not (obj and self.loaded_traits[sec]) then
+        return
+    end
+    CreateTimeEvent("experience_framework", "ExperienceTraitsManager_absorb_trait" .. obj:id(), 0.05, self.actor_on_take_trait, self, obj, sec)
+end
+
+function ExperienceTraitsManager:actor_on_take_trait(obj, sec)
+    if not (obj and sec and self.loaded_traits[sec]) then
+        return true
+    end
+
+    local id = self:create_trait(sec)
+    if id then
+        alife_release(obj)
+    end
+    return true
+end
+
+function ExperienceTraitsManager:load_traits()
+    local ini_traits = ini_file("experience_framework\\traits\\_includes.ltx")
+    ini_traits:section_for_each(function(section)
+        local props = {
+            ["max_level"]               = ini_traits:r_float_ex(section, "max_level"),
+            ["functor_enable"]          = ini_traits:r_string_ex(section, "functor_enable"),
+            ["functor_disable"]         = ini_traits:r_string_ex(section, "functor_disable"),
+            ["functor_description"]     = ini_traits:r_string_ex(section, "functor_description")
+        }
+        self:add_trait(section, props)
+    end)
+    experience_dbg.Write(6, "Traits Loaded: %s", size_table(self.loaded_traits))
+end
+
+function ExperienceTraitsManager:add_trait(sec, props)
+    if self.loaded_traits[sec] then
+        experience_dbg.Write(1, "Error loading '%s' trait. | This trait already exist!", sec)
+        return
+    end
+
+    if not (ini_sys:section_exist(sec) and experience_utils.IsTraitItem(sec)) then
+        experience_dbg.Write(1, "Error loading '%s' trait. | Incorrect item!", sec)
+        return
+    end
+
+    local t = {
+        ["max_level"]               = true,
+        ["functor_enable"]          = true,
+        ["functor_disable"]         = true,
+        ["functor_description"]     = true
+    }
+
+    for k in pairs(t) do
+        local prop = props[k]
+        if prop == nil then
+            experience_dbg.Write(1, "Error loading '%s' trait. | The '%s' field was not found in its settings table!", sec, k)
+			return
+        end
+
+        local prop_typ = type(prop)
+        local err = nil
+
+        if k == "max_level" then
+            if prop_typ == "number" then
+                prop = clamp(math.floor(prop), 1, 100)
+            else
+                err = strformat("Bad argument (number expected, got %s)", prop_typ)
+            end
+
+        elseif k == "functor_enable" or k == "functor_disable" or k == "functor_description" then
+            local str = str_explode(prop, "%.")
+            if (str[1] and str[2] and _G[ str[1] ] and _G[ str[1] ][ str[2] ]) then
+                prop = _G[ str[1] ][ str[2] ]
+            else
+                err = strformat("Can't find function '%s' in %s.script", tostring(str[2]), tostring(str[1]))
+            end
+        end
+
+        if err ~= nil then
+            experience_dbg.Write(1, "Failed loading '%s' trait. | Incorrect value in the '%s' field! | ERROR: %s", sec, k, err)
+            return
+        end
+
+        t[k] = prop
+    end
+
+    self.loaded_traits[sec] = t
+    experience_dbg.WriteDebug(3, "'%s' Trait Successfully Loaded!", sec)
+end
+
+function ExperienceTraitsManager:get_option(sec, option)
+    return self.loaded_traits[sec] and self.loaded_traits[sec][option]
+end
+
+function ExperienceTraitsManager:on_spawn(sec, qual, lvl)
+    if not self.loaded_traits[sec] then
+        return
+    end
+
+    self.indexer = self.indexer + 1
+    self.db_traits[self.indexer] = trait_object(self.indexer, sec, qual, self.loaded_traits[sec], lvl)
+    return self.indexer
+end
+
+function ExperienceTraitsManager:create_trait(sec)
+    local qual_t = self.quality_chances[experience_utils.GetActorPrestige()] or self.quality_chances[4]
+    local lvl = 0
+    local qual
+
+    while true do
+        qual = math.random(#qual_t)
+        if (math.random(1,1000)/1000) <= qual_t[qual] then
+            break
+        end
+    end
+
+    local flags = { level = lvl, quality = qual }
+    SendScriptCallback("experience_on_before_init_trait", sec, flags)
+
+    lvl = type(flags.level) == "number" and clamp(math.floor(flags.level), 0, self:get_option(sec, "max_level")) or lvl
+    qual = type(flags.quality) == "number" and clamp(math.floor(flags.quality), 1, 7) or qual
+
+    return self:on_spawn(sec, qual, lvl)
+end
+
+function ExperienceTraitsManager:trait_by_id(id)
+    return self.db_traits[id]
+end
+
+function ExperienceTraitsManager:release_trait(obj, id)
+    local tr = obj or self:trait_by_id(id)
+    if not tr then
+        return
+    end
+    tr:disable()
+    self.db_traits[tr:id()] = nil
+end
+
+function ExperienceTraitsManager:trait_for_each(itr_func)
+    for _,tr in spairs(self.db_traits, function(t,a,b) return a > b end) do
+        if itr_func(tr) == true then
+            return
+        end
+    end
+end
+
+----------------------------------------------------
+-- Class "trait_object"
+----------------------------------------------------
+class "trait_object"
+function trait_object:__init(id, section, quality, props, curr_level, state, slot)
+    self.c_id           = id
+    self.c_sec          = section
+    self.c_name         = SYS_GetParam(0, self.c_sec, "inv_name") or ""
+    self.c_qual         = quality or 1
+    self.c_mlvl         = props.max_level
+    self.c_func_on      = props.functor_enable
+    self.c_func_off     = props.functor_disable
+    self.c_func_desc    = props.functor_description
+    self.c_lvl          = curr_level or 0
+    self.c_st           = state or false
+    self.c_st_slot      = slot or -1
+
+    self:update()
+end
+
+function trait_object:enable(i)
+    if not self.c_st then
+        self.c_st = true
+        self.c_st_slot = i
+        self:update()
+    end
+end
+
+function trait_object:disable()
+    if self.c_st then
+        self.c_st = false
+        self.c_st_slot = -1
+        self.c_func_off(self.c_id, self.c_sec)
+    end
+end
+
+function trait_object:update()
+    if self.c_st then
+        self.c_func_on(self.c_id, self.c_sec, self.c_lvl, self.c_qual)
+    end
+end
+
+function trait_object:set_level(num)
+    if (type(num) == "number" and self.c_lvl ~= num) then
+        self.c_lvl = clamp(math.floor(num), 0, self.c_mlvl)
+        self:update()
+    end
+end
+
+function trait_object:set_quality(num)
+    if (type(num) == "number" and self.c_qual ~= num) then
+        self.c_qual = clamp(math.floor(num), 1, 7)
+        self:update()
+    end
+end
+
+function trait_object:set_slot(num)
+    self.c_st_slot = num
+end
+
+function trait_object:is_max()
+    return self.c_lvl >= self.c_mlvl
+end
+
+function trait_object:is_enabled()
+    return self.c_st
+end
+
+function trait_object:id()
+    return self.c_id
+end
+
+function trait_object:section()
+    return self.c_sec
+end
+
+function trait_object:quality()
+    return self.c_qual
+end
+
+function trait_object:slot()
+    return self.c_st_slot
+end
+
+function trait_object:name()
+    return game.translate_string(self.c_name)
+end
+
+function trait_object:description()
+    return self.c_func_desc(self.c_id, self.c_sec, self.c_lvl, self.c_qual) or ""
+end
+
+function trait_object:level()
+    return self.c_lvl
+end
+
+function trait_object:max_level()
+    return self.c_mlvl
+end
+
+function trait_object:savedata()
+    return { section = self.c_sec, quality = self.c_qual, curr_level = self.c_lvl, state = self.c_st, slot = self.c_st_slot }
+end
+----------------------------------------------------
+
+
+
+
+GUI = nil
+function get_ui(owner, xml)
+    if GUI == nil then
+        GUI = UIExperienceTraits(owner, xml)
+    end
+    return GUI
+end
+----------------------------------------------------
+-- Class "UIExperienceTraits"
+----------------------------------------------------
+class "UIExperienceTraits" (CUIWindow)
+function UIExperienceTraits:__init(owner, xml) super()
+    self.owner = owner
+    self.xml = xml
+    self.clr = dup_table(owner.clr)
+    self.clr.hide = GetARGB(110,255,255,255)
+    self.slots = {
+        [1] = { prestige = 0, id = nil, clr = nil },
+        [2] = { prestige = 1, id = nil, clr = nil },
+        [3] = { prestige = 0, id = nil, clr = nil },
+        [4] = { prestige = 2, id = nil, clr = nil },
+        [5] = { prestige = 4, id = nil, clr = nil },
+        [6] = { prestige = 3, id = nil, clr = nil }
+    }
+    self.max_qual_lvl = 7   -- DONT TOUCH!!!
+    self.exp_per_level = 20
+    self.quality_exp_mult = {
+        [1] = 0.2,    -- very_bad
+        [2] = 0.4,    -- bad
+        [3] = 0.8,    -- normal
+        [4] = 1.2,    -- good
+        [5] = 1.8,    -- epic
+        [6] = 3,      -- legendary
+        [7] = 5       -- mythic
+    }
+    self.quality_to_name = {
+        [1] = "ui_experience_traits_wnd_trait_quality_very_bad",
+        [2] = "ui_experience_traits_wnd_trait_quality_bad",
+        [3] = "ui_experience_traits_wnd_trait_quality_normal",
+        [4] = "ui_experience_traits_wnd_trait_quality_good",
+        [5] = "ui_experience_traits_wnd_trait_quality_epic",
+        [6] = "ui_experience_traits_wnd_trait_quality_legendary",
+        [7] = "ui_experience_traits_wnd_trait_quality_mythic"
+    }
+    self.inc_quality_msg = {
+        [2] = "ui_experience_traits_wnd_trait_inc_quality_bad_msg",
+        [3] = "ui_experience_traits_wnd_trait_inc_quality_normal_msg",
+        [4] = "ui_experience_traits_wnd_trait_inc_quality_good_msg",
+        [5] = "ui_experience_traits_wnd_trait_inc_quality_epic_msg",
+        [6] = "ui_experience_traits_wnd_trait_inc_quality_legendary_msg",
+        [7] = "ui_experience_traits_wnd_trait_inc_quality_mythic_msg"
+    }
+    self.quality_colors = {
+        [1] = GetARGB(255,210,20,20),
+        [2] = GetARGB(255,205,205,205),
+        [3] = GetARGB(255,100,220,140),
+        [4] = GetARGB(255,35,110,175),
+        [5] = GetARGB(255,180,65,240),
+        [6] = GetARGB(255,240,195,40),
+        [7] = GetARGB(255,240,100,40)
+    }
+    self.ppfx_quality_colors = {
+        [1] = {210,20,20},
+        [2] = {205,205,205},
+        [3] = {100,220,140},
+        [4] = {35,110,175},
+        [5] = {180,65,240},
+        [6] = {240,195,40},
+        [7] = {240,100,40}
+    }
+    self.cont = {
+        traits          = {},
+        upgrade         = {}
+    }
+    self.trait_in_slots = {}
+    self.slot_upgr      = {}
+    self.controls       = { mode = 1 }
+    self.selected       = { id = nil, slot = nil }
+    self.upgr_mode      = { name = nil, sec = nil, curr_level = nil, quality = nil, chance = 0 }
+    self.hold_id        = nil
+    self.db             = { slot = nil, tg = 0 }
+    self.cached_name    = { sec = nil, lvl = nil, qual = nil, str = nil }
+    self.msg_box_mode   = "none"
+    self.upgrade_btn_delay = nil
+    self.inc_quality_flag = nil
+
+    if tr_mngr == nil then
+        actor_on_first_update()
+    end
+
+    self:InitControls()
+    self:InitCallBacks()
+end
+
+function UIExperienceTraits:InitControls()
+    local xml = self.xml
+
+    self.dialog                                 = xml:InitStatic("traits_wnd:frame", self)
+
+    self.traits_list                            = experience_ui.UIScrollbarContainer("traits", xml, self, "traits_wnd:traits_list", self.dialog)
+    self.traits_list.can_stack                  = false
+    self.traits_list.can_drag                   = true
+    self.traits_list.can_select                 = true
+    self.traits_list.show_scroll                = true
+    self.traits_list.sort_method                = function(elements, a_indx, b_indx)
+        local a_tr = tr_mngr:trait_by_id( self.traits_list:GetID(a_indx) )
+        local b_tr = tr_mngr:trait_by_id( self.traits_list:GetID(b_indx) )
+        local a_qual = a_tr:quality()
+        local b_qual = b_tr:quality()
+        local a_sec = a_tr:section()
+        local b_sec = b_tr:section()
+        local a_lvl = a_tr:level()
+        local b_lvl = b_tr:level()
+        if a_lvl == b_lvl then
+            if a_qual == b_qual then
+                if a_sec == b_sec then
+                    return false
+                end
+                return a_sec < b_sec
+            end
+            return a_qual > b_qual
+        end
+        return a_lvl > b_lvl
+    end
+
+    self.traits_list_upgrade                    = experience_ui.UIScrollbarContainer("upgrade", xml, self, "traits_wnd:traits_list", self.dialog)
+    self.traits_list_upgrade.can_stack          = true
+    self.traits_list_upgrade.can_drag           = false
+    self.traits_list_upgrade.can_select         = true
+    self.traits_list_upgrade.show_scroll        = true
+    self.traits_list_upgrade.sort_method        = function(elements, a_indx, b_indx)
+        local a_sec, a_lvl, a_qual = self:UpgradeMode_DecodeName( self.traits_list_upgrade:GetID(a_indx) )
+        local b_sec, b_lvl, b_qual = self:UpgradeMode_DecodeName( self.traits_list_upgrade:GetID(b_indx) )
+        local a_cnt = self.traits_list_upgrade:GetElementCount(a_indx)
+        local b_cnt = self.traits_list_upgrade:GetElementCount(b_indx)
+        if a_lvl == b_lvl then
+            if a_qual == b_qual then
+                if a_cnt == b_cnt then
+                    if a_sec == b_sec then
+                        return false
+                    end
+                    return a_sec < b_sec
+                end
+                return a_cnt > b_cnt
+            end
+            return a_qual < b_qual
+        end
+        return a_lvl < b_lvl
+    end
+    self.traits_list_upgrade:Show(false)
+
+    self.controls.wnd                           = xml:InitFrame("traits_wnd:controls", self.dialog)
+
+    self.controls.btn_upgrade_b                 = xml:InitFrame("traits_wnd:controls:btn_upgrade_b", self.controls.wnd)
+    self.controls.btn_upgrade                   = xml:Init3tButton("traits_wnd:controls:btn", self.controls.btn_upgrade_b)
+    self:Register(self.controls.btn_upgrade, "button_upgrade")
+
+    self.controls.btn_destroy_b                 = xml:InitFrame("traits_wnd:controls:btn_destroy_b", self.controls.wnd)
+    self.controls.btn_destroy                   = xml:Init3tButton("traits_wnd:controls:btn", self.controls.btn_destroy_b)
+    self:Register(self.controls.btn_destroy, "button_destroy")
+    self.controls.wnd:Show(false)
+
+    self.slots_frame                            = xml:InitFrame("traits_wnd:slots", self.dialog)
+    for i=1, #self.slots do
+        self.slots[i].wnd = xml:InitFrame("traits_wnd:slots:slot_" .. i, self.slots_frame)
+
+        self.slots[i].hint = xml:InitTextWnd("traits_wnd:slots:hint", self.slots[i].wnd)
+        self.slots[i].hint:Show(false)
+
+        self.slots[i].icon_sh = xml:InitStatic("traits_wnd:slots:st", self.slots[i].wnd)
+        self.slots[i].icon = xml:InitStatic("traits_wnd:slots:st", self.slots[i].wnd)
+        self.slots[i].icon_sh:Show(false)
+        self.slots[i].icon:Show(false)
+
+        self.slots[i].txt_sh = xml:InitTextWnd("traits_wnd:slots:st_text", self.slots[i].wnd)
+        self.slots[i].txt = xml:InitTextWnd("traits_wnd:slots:st_text", self.slots[i].wnd)
+        self.slots[i].txt_sh:Show(false)
+        self.slots[i].txt:Show(false)
+    end
+
+    self.slot_upgr.wnd                          = xml:InitFrame("traits_wnd:slot_upgr", self.dialog)
+    self.slot_upgr.icon_sh                      = xml:InitStatic("traits_wnd:slots:st", self.slot_upgr.wnd)
+    self.slot_upgr.icon                         = xml:InitStatic("traits_wnd:slots:st", self.slot_upgr.wnd)
+
+    self.slot_upgr.txt_sh                       = xml:InitTextWnd("traits_wnd:slots:st_text", self.slot_upgr.wnd)
+    self.slot_upgr.txt                          = xml:InitTextWnd("traits_wnd:slots:st_text", self.slot_upgr.wnd)
+
+    self.slot_upgr.icon_sh:Show(true)
+    self.slot_upgr.icon:Show(true)
+    self.slot_upgr.txt_sh:Show(true)
+    self.slot_upgr.txt:Show(true)
+    self.slot_upgr.wnd:Show(false)
+
+    self.spawner_btn_b                          = xml:InitFrame("traits_wnd:frame_btn_spawner", self.dialog)
+    self.spawner_btn                            = xml:Init3tButton("traits_wnd:btn_spawner", self.spawner_btn_b)
+    self.spawner_btn:TextControl():SetText("Spawner")
+    self:Register(self.spawner_btn, "button_spawner")
+    self.spawner_btn_b:Show(false)
+
+    self.spawner_dialog                         = xml:InitFrame("traits_wnd:spawner:frame", self)
+    self.spawner_entry                          = xml:InitEditBox("traits_wnd:spawner:input_count", self.spawner_dialog)
+    self.spawner_trait_list                     = experience_ui.UIComboBoxCustom(xml, "traits_wnd:spawner:list", self.spawner_dialog)
+
+    self.spawner_trait_list_lvl                 = experience_ui.UIComboBoxCustom(xml, "traits_wnd:spawner:list", self.spawner_dialog)
+    self.spawner_trait_list_lvl:SetWndPos(vector2():set( self.spawner_trait_list_lvl:GetWndPos().x , self.spawner_trait_list:GetWndPos().y + self.spawner_trait_list:GetHeight() + 3 ))
+
+    self.spawner_trait_list_qual                = experience_ui.UIComboBoxCustom(xml, "traits_wnd:spawner:list", self.spawner_dialog)
+    self.spawner_trait_list_qual:SetWndPos(vector2():set( self.spawner_trait_list_qual:GetWndPos().x , self.spawner_trait_list_lvl:GetWndPos().y + self.spawner_trait_list_lvl:GetHeight() + 3 ))
+
+    self.spawner_btn_on_spawn                   = xml:Init3tButton("traits_wnd:spawner:btn_on_spawn", self.spawner_dialog)
+    self.spawner_btn_on_spawn:TextControl():SetText("Spawn Trait")
+    self:Register(self.spawner_btn_on_spawn, "button_on_spawn")
+    self.spawner_dialog:Show(false)
+
+	self.msg_box                                = experience_ui.UIMessageBoxCustom(xml)
+end
+
+function UIExperienceTraits:InitCallBacks()
+    self:AddCallback("button_upgrade",  ui_events.BUTTON_CLICKED,           self.Callback_OnButtonUpgrade,      self)
+    self:AddCallback("button_destroy",  ui_events.BUTTON_CLICKED,           self.Callback_OnButtonDestroy,      self)
+    self:AddCallback("button_spawner",  ui_events.BUTTON_CLICKED,           self.Callback_OpenSpawnerMenu,      self)
+    self:AddCallback("button_on_spawn", ui_events.BUTTON_CLICKED,           self.Callback_Spawner_BtnOnSpawn,   self)
+
+    self.msg_box:SetCallback("yes", self.Callback_OnMSG_Yes, self)
+    self.msg_box:SetCallback("no", self.Callback_OnMSG_No, self)
+
+    self.spawner_trait_list:SetCallback(self.Callback_Spawner_OnSelectTrait, self)
+    self.spawner_trait_list_lvl:SetCallback(self.Callback_Spawner_OnSelectLevel, self)
+    self.spawner_trait_list_qual:SetCallback(self.Callback_Spawner_OnSelectQuality, self)
+end
+
+function UIExperienceTraits:Reset()
+    self.controls.mode = 1
+    self.inc_quality_flag = nil
+    self.selected.id = nil
+    self.selected.slot = nil
+    self.upgr_mode.name = nil
+    self.upgr_mode.sec = nil
+    self.upgr_mode.curr_level = nil
+    self.upgr_mode.quality = nil
+    self.upgr_mode.chance = 0
+    self.hold_id = nil
+    self.db.slot = nil
+    self.db.tg = 0
+    self.msg_box_mode = "none"
+
+    self.dialog:Show(true)
+    self.spawner_dialog:Show(false)
+    self.traits_list:Show(true)
+    self.traits_list_upgrade:Show(false)
+    self:UnsetUpgradeDelay()
+    self:ShowControls(false)
+    self:ShowSlots(true)
+    self.slot_upgr.wnd:Show(false)
+    self.spawner_btn_b:Show( experience_dbg.IsDebugMode() )
+
+    tr_mngr:trait_for_each(function(tr)
+        self:AddTrait(tr:id())
+    end)
+
+    for i=1, #self.slots do
+        self:ManageSlot(i)
+    end
+
+    self.traits_list:Reset()
+end
+
+function UIExperienceTraits:AddTrait(id)
+    if self.cont.traits[id] or self.trait_in_slots[id] then
+        return
+    end
+
+    local tr = tr_mngr:trait_by_id(id)
+    local sec = tr:section()
+    local grid_width = SYS_GetParam(2, sec, "inv_grid_width", 1)
+    local grid_height = SYS_GetParam(2, sec, "inv_grid_height", 1)
+    local icon_texture = utils_xml.get_icons_texture(sec)
+    local axis = utils_xml.get_item_axis(sec)
+
+    local indx = self.traits_list:AddElement(id, icon_texture, grid_width, grid_height, axis)
+    if indx then
+        self.cont.traits[id] = { indx = indx }
+        local ele = self.traits_list:GetElementByIndex(indx)
+        ele:SetTextColor(self.clr.yellow)
+
+        ele:ShowIndicator(true)
+        ele:SetIndicatorAlign("l", "b")
+        ele:SetIndicatorColor(self.quality_colors[tr:quality()])
+
+        local lvl = tr:level()
+        if lvl > 0 then
+            ele:SetText("+" .. lvl)
+        end
+        if tr:is_enabled() then
+            self:MoveToSlot(id, tr:slot())
+        end
+    end
+end
+
+function UIExperienceTraits:RemoveTrait(id, full_remove)
+    if self:IsSelected(id) then
+        self:UnselectTrait()
+    end
+
+    if self.cont.traits[id] then
+        self.traits_list:RemoveElement(self.cont.traits[id].indx)
+        self.cont.traits[id] = nil
+    end
+
+    if full_remove then
+        local slot = self:GetSlotByTrait(id)
+        if slot then
+            self.slots[slot].id = nil
+            self.slots[slot].clr = nil
+            self.slots[slot].txt_sh:SetText("")
+            self.slots[slot].txt:SetText("")
+            self:EnableSlot(slot, false)
+            self.trait_in_slots[id] = nil
+        end
+        tr_mngr:release_trait(nil, id)
+    end
+end
+
+function UIExperienceTraits:UpgradeMode_AddTrait(tr)
+    local id = tr:id()
+    local sec = tr:section()
+    local curr_level = tr:level()
+    local quality = tr:quality()
+    local name = self:UpgradeMode_EncodeName(sec, curr_level, quality)
+
+    local grid_width = SYS_GetParam(2, sec, "inv_grid_width", 1)
+    local grid_height = SYS_GetParam(2, sec, "inv_grid_height", 1)
+    local icon_texture = utils_xml.get_icons_texture(sec)
+    local axis = utils_xml.get_item_axis(sec)
+
+    local indx = self.traits_list_upgrade:AddElement(name, icon_texture, grid_width, grid_height, axis)
+    if indx then
+        if not self.cont.upgrade[name] then
+            self.cont.upgrade[name] = {}
+            local ele = self.traits_list_upgrade:GetElementByIndex(indx)
+            ele:SetTextColor(self.clr.yellow)
+
+            ele:ShowIndicator(true)
+            ele:SetIndicatorAlign("l", "b")
+            ele:SetIndicatorColor(self.quality_colors[quality])
+
+            if curr_level > 0 then
+                ele:SetText("+" .. curr_level)
+            end
+        end
+        self.cont.upgrade[name][id] = true
+    end
+end
+
+function UIExperienceTraits:UpgradeMode_RemoveTrait(name)
+    if self.cont.upgrade[name] then
+        self.traits_list_upgrade:RemoveElement(nil, name)
+        local id = random_key_table(self.cont.upgrade[name])
+        self.cont.upgrade[name][id] = nil
+        self:RemoveTrait(id, true)
+    end
+end
+
+function UIExperienceTraits:UpgradeMode_EncodeName(sec, curr_level, quality)
+    return sec .. ":" .. tostring(curr_level) .. ":" .. tostring(quality)
+end
+
+function UIExperienceTraits:UpgradeMode_DecodeName(name)
+    local str = str_explode(name, ":")
+    return str[1], tonumber(str[2]), tonumber(str[3])   -- section, curr_level, quality
+end
+
+function UIExperienceTraits:ManageSlot(i)
+    local v = self.slots[i]
+    v.wnd:Show(true)
+    v.hint:Show(false)
+    v.icon_sh:Show(false)
+    v.icon:Show(false)
+    v.txt_sh:Show(false)
+    v.txt:Show(false)
+
+    if not self:CanMoveToSlot(i) then
+        if v.id then
+            self:MoveFromSlot(i)
+        end
+        v.wnd:SetColor(self.clr.hide)
+        v.hint:Show(true)
+        v.hint:SetText(strformat(game.translate_string("ui_experience_traits_wnd_trait_slot_need_prestige"), v.prestige))
+    else
+        if v.id then
+            self:EnableSlot(i, true)
+        else
+            self:EnableSlot(i, false)
+        end
+    end
+end
+
+function UIExperienceTraits:MoveFromSlot(i)
+    local v = self.slots[i]
+    if not (v and v.id) then
+        return
+    end
+
+    local id = v.id
+    if self:IsSelected(id) then
+        self:UnselectTrait()
+    end
+
+    v.id = nil
+    v.clr = nil
+    v.txt_sh:SetText("")
+    v.txt:SetText("")
+    self:EnableSlot(i, false)
+    self.trait_in_slots[id] = nil
+
+    local tr = tr_mngr:trait_by_id(id)
+    tr:disable()
+    self:AddTrait(id)
+    self.traits_list:Sort()
+end
+
+function UIExperienceTraits:MoveToSlot(id, i)
+    local v = self.slots[i]
+    if not v then
+        return
+    end
+
+    local tr = tr_mngr:trait_by_id(id)
+
+    if v.id then
+        self:MoveFromSlot(i)
+    end
+
+    local ele = self.traits_list:GetElementByIndex(self.cont.traits[id].indx)
+    local width = ele.W
+    local height = ele.H
+    local axis = ele.axis
+
+    v.icon_sh:InitTexture(ele.texture)
+    v.icon:InitTexture(ele.texture)
+    v.icon_sh:SetTextureRect(Frect():set(axis.x1, axis.y1, axis.x2, axis.y2))
+    v.icon:SetTextureRect(Frect():set(axis.x1, axis.y1, axis.x2, axis.y2))
+    v.icon_sh:SetTextureColor(self.clr.shadow)
+
+    v.icon_sh:SetWndSize(vector2():set( width , height ))
+    utils_xml.sync_size(v.icon_sh, v.icon)
+
+    local pos_x = v.wnd:GetWidth() / 2 - width / 2
+    local pos_y = v.wnd:GetHeight() / 2 - height / 2
+    v.icon_sh:SetWndPos(vector2():set( pos_x + 1 , pos_y + 2 ))
+    v.icon:SetWndPos(vector2():set( pos_x , pos_y ))
+
+    local txt = ele:GetText()
+    v.txt:SetTextColor(ele:GetTextColor())
+    v.txt_sh:SetText(txt)
+    v.txt:SetText(txt)
+    utils_xml.sync_element(v.txt, v.icon)
+    utils_xml.sync_size(v.txt, v.txt_sh)
+    v.txt_sh:SetWndPos(vector2():set( pos_x + 1 , pos_y + 1 ))
+
+    if not tr:is_enabled() then
+        tr:enable(i)
+    elseif tr:slot() ~= i then
+        tr:set_slot(i)
+    end
+
+    v.id = id
+    v.clr = self.quality_colors[ tr:quality() ]
+    self:EnableSlot(i, true)
+    self.trait_in_slots[id] = i
+
+    self:RemoveTrait(id)
+    self.traits_list:Sort()
+end
+
+function UIExperienceTraits:SC_On_Select(cont_id, indx, id)
+    if cont_id == "traits" then
+        self:SelectTrait(id)
+
+    elseif cont_id == "upgrade" then
+        self.upgr_mode.name = id
+        self.upgr_mode.sec, self.upgr_mode.curr_level, self.upgr_mode.quality = self:UpgradeMode_DecodeName(self.upgr_mode.name)
+        self:UpdateUpgradeChance()
+        self:ShowControls(true)
+    end
+    self:PlaySND("on_select_1")
+end
+
+function UIExperienceTraits:SC_On_Unselect(cont_id, indx, id)
+    if cont_id == "traits" then
+        self:UnselectTrait()
+
+    elseif cont_id == "upgrade" then
+        self.upgr_mode.name = nil
+        self.upgr_mode.sec = nil
+        self.upgr_mode.curr_level = nil
+        self.upgr_mode.quality = nil
+        self.upgr_mode.chance = 0
+        self:ShowControls(true)
+    end
+    self:PlaySND("on_unselect_1")
+    return true
+end
+
+function UIExperienceTraits:SC_On_DragDrop(cont_id, indx, id)
+    local tr = tr_mngr:trait_by_id(id)
+    if tr:level() > 0 then
+        self:UnselectTrait()
+        self.hold_id = id
+        self:PlaySND("on_drag_trait")
+        return true
+    end
+end
+
+function UIExperienceTraits:Trait_OnDrop()
+    if self.hold_id == nil then
+        return
+    end
+
+    for i=1, #self.slots do
+        if (self.slots[i].wnd:IsCursorOverWindow() and self:CanMoveToSlot(i)) then
+            self:MoveToSlot(self.hold_id, i)
+            local tr = tr_mngr:trait_by_id(self.hold_id)
+            self:PlayPPFX(nil, 215, self.ppfx_quality_colors[ tr:quality() ])
+            self:PlaySND("equip_trait")
+            break
+        end
+    end
+    self.hold_id = nil
+end
+
+function UIExperienceTraits:SelectTrait(id, slot)
+    self:UnselectTrait()
+
+    if (slot and self.slots[slot].id) then
+        self.slots[slot].wnd:SetColor(self.clr.cyan)
+    end
+
+    local tr = tr_mngr:trait_by_id(id)
+    if (tr:is_max() and tr:quality() < self.max_qual_lvl) then
+        self.inc_quality_flag = true
+    end
+
+    self.selected.id = id
+    self.selected.slot = slot
+    self:ShowControls(true)
+end
+
+function UIExperienceTraits:UnselectTrait()
+    if self.selected.id == nil then
+        return
+    end
+
+    if (self.selected.slot and self.slots[self.selected.slot].id) then
+        self.slots[self.selected.slot].wnd:SetColor(self.slots[self.selected.slot].clr)
+    end
+
+    if self.cont.traits[self.selected.id] then
+        self.traits_list:UnselectElement(self.cont.traits[self.selected.id].indx)
+    end
+
+    self.selected.id = nil
+    self.selected.slot = nil
+    self.inc_quality_flag = nil
+    self:ShowControls(false)
+end
+
+function UIExperienceTraits:IsSelected(id)
+    return self.selected.id and self.selected.id == id or false
+end
+
+function UIExperienceTraits:CanMoveToSlot(i)
+    return experience_options.Get("Traits/ALL_SLOTS_OPEN", true)
+        or self.slots[i].prestige <= experience_utils.GetActorPrestige()
+end
+
+function UIExperienceTraits:GetSlotByTrait(id)
+    return self.trait_in_slots[id]
+end
+
+function UIExperienceTraits:ShowSlots(state)
+    self.slots_frame:Show(state)
+end
+
+function UIExperienceTraits:EnableSlot(i, state)
+    if (state and self.slots[i].id ~= nil) then
+        self.slots[i].wnd:SetColor(self.slots[i].clr)
+        self.slots[i].icon_sh:Show(true)
+        self.slots[i].icon:Show(true)
+        self.slots[i].txt_sh:Show(true)
+        self.slots[i].txt:Show(true)
+    else
+        self.slots[i].wnd:SetColor(self.clr.black)
+        self.slots[i].icon_sh:Show(false)
+        self.slots[i].icon:Show(false)
+        self.slots[i].txt_sh:Show(false)
+        self.slots[i].txt:Show(false)
+    end
+end
+
+function UIExperienceTraits:ShowControls(state)
+    if not state then
+        self.controls.wnd:Show(false)
+        return
+    end
+
+    local tr = tr_mngr:trait_by_id(self.selected.id)
+    if not tr then
+        self.controls.wnd:Show(false)
+        return
+    end
+
+    self.controls.wnd:Show(true)
+    self.controls.btn_upgrade_b:Show(false)
+    self.controls.btn_destroy_b:Show(false)
+
+    if self.controls.mode == 1 then
+        if not self.inc_quality_flag then
+            local cont_is_empty = true
+            for id in pairs(self.cont.traits) do
+                if not self:IsSelected(id) then
+                    cont_is_empty = false
+                    break
+                end
+            end
+            if cont_is_empty then
+                for i, v in pairs(self.slots) do
+                    if (v.id ~= nil and not self:IsSelected(v.id)) then
+                        cont_is_empty = false
+                        break
+                    end
+                end
+            end
+    
+            if (not cont_is_empty and not tr:is_max()) then
+                self.controls.btn_upgrade:TextControl():SetText(game.translate_string("ui_experience_traits_wnd_trait_upgrade_mode_1"))
+                self.controls.btn_upgrade_b:Show(true)
+            end
+        else
+            self.controls.btn_upgrade:TextControl():SetText(game.translate_string("ui_experience_traits_wnd_trait_inc_quality_mode_1"))
+            self.controls.btn_upgrade_b:Show(true)
+        end
+
+        local exp = self:GetDestroyExp(self.selected.id)
+        self.controls.btn_destroy:TextControl():SetText(strformat(game.translate_string("ui_experience_traits_wnd_trait_destroy_mode_1"), round_idp(exp, 1)))
+        self.controls.btn_destroy_b:Show(true)
+
+    elseif self.controls.mode == 2 then
+        if self.upgr_mode.name ~= nil then
+            self.controls.btn_upgrade:TextControl():SetText(strformat(game.translate_string("ui_experience_traits_wnd_trait_upgrade_mode_2"), tr:level() + 1, self.upgr_mode.chance))
+            self.controls.btn_upgrade_b:Show(true)
+        end
+        self.controls.btn_destroy:TextControl():SetText(game.translate_string("ui_experience_traits_wnd_trait_destroy_mode_2"))
+        self.controls.btn_destroy_b:Show(true)
+    end
+end
+
+function UIExperienceTraits:GetDestroyExp(id)
+    local tr = tr_mngr:trait_by_id(id)
+    return ((self.exp_per_level * self.quality_exp_mult[tr:quality()]) * experience_options.Get("Main/GLOBAL_EXPERIENCE_MULT")) * tr:level()
+end
+
+function UIExperienceTraits:UpdateUpgradeChance()
+    local tr = tr_mngr:trait_by_id(self.selected.id)
+    local max_level = tr:max_level()
+    local qual = tr:quality() - (self.upgr_mode.quality - 1)
+    local curr_level = tr:level() - self.upgr_mode.curr_level
+
+    local base_chance = 99
+    if qual > 0 then
+        base_chance = base_chance / qual
+    elseif qual < 0 then
+        base_chance = base_chance + base_chance / (self.max_qual_lvl + qual)
+    end
+    local result = base_chance - base_chance / (max_level / curr_level)
+    result = clamp(math.floor(result + 0.5), 1, 100)
+
+    local flags = { chance = result }
+    SendScriptCallback("experience_on_upgrade_trait_chance", tr:section(), tr:level(), tr:max_level(), tr:quality(), flags)
+
+    self.upgr_mode.chance = type(flags.chance) == "number" and clamp(math.floor(flags.chance + 0.5), 1, 100) or result
+end
+
+function UIExperienceTraits:GetActiveSlotByCursor()
+    if not self.slots_frame:IsCursorOverWindow() then
+        return
+    end
+
+    for i, v in pairs(self.slots) do
+        if (v.wnd:IsCursorOverWindow() and v.id ~= nil) then
+            return i
+        end
+    end
+end
+
+function UIExperienceTraits:GetTraitName(sec, curr_level, quality, tr)
+    if not sec then
+        if not tr then
+            return ""
+        end
+        sec = tr:section()
+    end
+
+    if (self.cached_name.sec == sec and self.cached_name.lvl == curr_level and self.cached_name.qual == quality) then
+        return self.cached_name.str
+    end
+
+    local str = tr and tr:name() or ui_item.get_sec_name(sec)
+    if (curr_level and curr_level > 0) then
+        str = str .. " (+" .. curr_level .. ")"
+    end
+    str = str .. "\\n \\n" .. game.translate_string("ui_experience_traits_wnd_trait_quality_name") .. " " .. game.translate_string(self.quality_to_name[quality])
+
+    self.cached_name.sec = sec
+    self.cached_name.lvl = curr_level
+    self.cached_name.qual = quality
+    self.cached_name.str = str
+    return self.cached_name.str
+end
+
+function UIExperienceTraits:On_Mouse_1()
+    if self.hold_id ~= nil then
+        return
+    end
+
+    local i = self:GetActiveSlotByCursor()
+    if not i then
+        return
+    end
+
+    local tg = experience_utils.GetTime()
+    if (i == self.db.slot and tg - self.db.tg < 300) then
+        self:MoveFromSlot(i)
+        self.db.slot = nil
+        self.db.tg = 0
+        self:StopSND("on_select_1")
+        self:StopSND("on_unselect_1")
+        self:PlaySND("unequip_trait")
+        return
+    end
+
+    if self:IsSelected(self.slots[i].id) then
+        self:UnselectTrait()
+        self:PlaySND("on_unselect_1")
+    else
+        self:SelectTrait(self.slots[i].id, i)
+        self:PlaySND("on_select_1")
+    end
+
+    self.db.slot = i
+    self.db.tg = tg
+end
+
+function UIExperienceTraits:OnMove_InteractWithSlots()
+    if self.hold_id == nil then
+        return
+    end
+
+    for i, v in pairs(self.slots) do
+        if self:CanMoveToSlot(i) then
+            if v.wnd:IsCursorOverWindow() then
+                if v.id then
+                    v.wnd:SetColor(self.clr.cyan)
+                else
+                    v.wnd:SetColor(self.clr.green)
+                end
+            else
+                if v.id then
+                    v.wnd:SetColor(v.clr)
+                else
+                    v.wnd:SetColor(self.clr.black)
+                end
+            end
+        end
+    end
+end
+
+function UIExperienceTraits:SetUpgradeDelay()
+    self.controls.btn_upgrade:Enable(false)
+    self.upgrade_btn_delay = 70
+end
+
+function UIExperienceTraits:UnsetUpgradeDelay()
+    self.upgrade_btn_delay = nil
+    self.controls.btn_upgrade:Enable(true)
+end
+
+-- Called from experience_ui.UIExperienceMenu.Update
+function UIExperienceTraits:Update()
+    self.traits_list:Update()
+    self.traits_list_upgrade:Update()
+    self:OnMove_InteractWithSlots()
+
+    if self.upgrade_btn_delay ~= nil then
+        self.upgrade_btn_delay = self.upgrade_btn_delay - 1
+        if self.upgrade_btn_delay <= 0 then
+            self:UnsetUpgradeDelay()
+        end
+    end
+end
+
+-- Called from experience_ui.UIExperienceMenu.OnKeyboard
+function UIExperienceTraits:OnKeyboard(res, dik, keyboard_action)
+    if res == false then
+        self.traits_list:OnKeyboard(dik, keyboard_action)
+        self.traits_list_upgrade:OnKeyboard(dik, keyboard_action)
+
+        if keyboard_action == ui_events.WINDOW_KEY_PRESSED then
+            if dik == DIK_keys.DIK_ESCAPE then
+                self:CloseWindow()
+            elseif dik == DIK_keys.MOUSE_1 then
+                self:On_Mouse_1()
+            end
+
+        elseif keyboard_action == ui_events.WINDOW_KEY_RELEASED then
+            if dik == DIK_keys.MOUSE_1 then
+                self:Trait_OnDrop()
+            end
+        end
+    end
+end
+
+-- Called from experience_ui.UIExperienceMenu.ProcessHint
+function UIExperienceTraits:ProcessHint(hint_wnd)
+    if self.msg_box:IsShown() then
+        return
+    end
+
+    local TXT = nil
+
+    if self.traits_list:IsCursorOverWindow() then
+        self.traits_list:IterateContainer(function(indx, id, ele)
+            if ele:IsCursorOverWindow() then
+                local tr = tr_mngr:trait_by_id(id)
+                TXT = self:GetTraitName(tr:section(), tr:level(), tr:quality(), tr) .. "\\n \\n" .. tr:description()
+                return true
+            end
+        end)
+
+    elseif self.traits_list_upgrade:IsCursorOverWindow() then
+        self.traits_list_upgrade:IterateContainer(function(indx, name, ele)
+            if ele:IsCursorOverWindow() then
+                local sec, curr_level, quality = self:UpgradeMode_DecodeName(name)
+                TXT = self:GetTraitName(sec, curr_level, quality)
+                return true
+            end
+        end)
+
+    elseif self.slot_upgr.wnd:IsCursorOverWindow() then
+        local tr = tr_mngr:trait_by_id(self.selected.id)
+        if tr ~= nil then
+            TXT = self:GetTraitName(tr:section(), tr:level(), tr:quality(), tr) .. "\\n \\n" .. tr:description()
+        end
+
+    elseif self.slots_frame:IsCursorOverWindow() then
+        for _,v in pairs(self.slots) do
+            if v.wnd:IsCursorOverWindow() then
+                if v.id ~= nil then
+                    local tr = tr_mngr:trait_by_id(v.id)
+                    local slot_name = self:GetTraitName(tr:section(), tr:level(), tr:quality(), tr)
+                    if self.hold_id ~= nil then
+                        local tr_hold = tr_mngr:trait_by_id(self.hold_id)
+                        TXT = game.translate_string("ui_experience_traits_wnd_replace_trait_hint") .. "\\n \\n" .. self:GetTraitName(tr_hold:section(), tr_hold:level(), tr_hold:quality(), tr_hold)
+                    else
+                        TXT = slot_name .. "\\n \\n" .. tr:description()
+                    end
+                end
+                break
+            end
+        end
+    end
+
+    if TXT ~= nil then
+        hint_wnd:Update(TXT)
+        return true
+    end
+end
+
+function UIExperienceTraits:CloseWindow(dont_play_sound)
+    self.owner:CloseCurrentWindow(dont_play_sound)
+end
+
+-- Called from experience_ui.UIExperienceMenu.CloseCurrentWindow
+function UIExperienceTraits:Close()
+    self:Show(false)
+end
+
+function UIExperienceTraits:Register(obj, id)
+    self.owner:Register(obj, "traits_wnd_" .. id)
+end
+
+function UIExperienceTraits:AddCallback(id, action, functor, obj)
+    self.owner:AddCallback("traits_wnd_" .. id, action, functor, obj)
+end
+
+function UIExperienceTraits:UpdateActorStats()
+    self.owner:UpdateActorStats()
+end
+
+function UIExperienceTraits:PlaySND(key)
+    self.owner:PlaySND(key)
+end
+
+function UIExperienceTraits:StopSND(key)
+    self.owner:StopSND(key)
+end
+
+function UIExperienceTraits:SetMsg(text, tmr, align)
+    self.owner:SetMsg(text, tmr, align)
+end
+
+function UIExperienceTraits:PlayPPFX(clr_id, start_alpha, clr_table, looped)
+    self.owner:PlayPPFX(clr_id, start_alpha, clr_table, looped)
+end
+
+function UIExperienceTraits:StopPPFX(force)
+    self.owner:StopPPFX(force)
+end
+
+function UIExperienceTraits:Callback_OnButtonUpgrade()
+    if self.controls.mode == 1 then     -- Show upgrade mode or increase quality
+        if self.inc_quality_flag then
+            self.msg_box_mode = "inc_quality"
+            self.msg_box:InitMessageBox("yes_no")
+            self.msg_box:AddCapText(game.translate_string("ui_experience_traits_wnd_trait_warning_msg_inc_quality"))
+            self.msg_box:ShowMessage()
+            local tr = tr_mngr:trait_by_id(self.selected.id)
+            self:PlayPPFX(nil, 240, self.ppfx_quality_colors[ tr:quality() ], true)
+            self:PlaySND("ui_generic_1")
+            return
+        end
+
+        self.controls.mode = 2
+        self:ShowSlots(false)
+        self:ShowControls(true)
+        self.traits_list:Show(false)
+        self.traits_list_upgrade:Show(true)
+        self.traits_list_upgrade:Clear()
+        empty_table(self.cont.upgrade)
+
+        -- Collect Existing Traits To "traits_list_upgrade" Container
+        for i, v in pairs(self.slots) do
+            if (v.id ~= nil and not self:IsSelected(v.id)) then
+                self:UpgradeMode_AddTrait( tr_mngr:trait_by_id(v.id) )
+            end
+        end
+        for id in pairs(self.cont.traits) do
+            if not self:IsSelected(id) then
+                self:UpgradeMode_AddTrait( tr_mngr:trait_by_id(id) )
+            end
+        end
+        self.traits_list_upgrade:Reset()
+
+        -- Show Upgrade Slot
+        if self.selected.slot ~= nil then
+            local tr = tr_mngr:trait_by_id(self.selected.id)
+            local sec = tr:section()
+            local icon_texture = utils_xml.get_icons_texture(sec)
+            local axis = utils_xml.get_item_axis(sec)
+
+            local v = self.slots[self.selected.slot]
+            local txt = v.txt:GetText()
+
+            self.slot_upgr.wnd:SetColor(v.clr)
+
+            self.slot_upgr.icon_sh:InitTexture(icon_texture)
+            self.slot_upgr.icon:InitTexture(icon_texture)
+            self.slot_upgr.icon_sh:SetTextureRect(Frect():set(axis.x1, axis.y1, axis.x2, axis.y2))
+            self.slot_upgr.icon:SetTextureRect(Frect():set(axis.x1, axis.y1, axis.x2, axis.y2))
+            self.slot_upgr.icon_sh:SetTextureColor(self.clr.shadow)
+
+            utils_xml.sync_element(self.slot_upgr.icon, v.icon)
+            utils_xml.sync_element(self.slot_upgr.txt, v.icon)
+            utils_xml.sync_size(self.slot_upgr.icon, self.slot_upgr.icon_sh)
+            utils_xml.sync_size(self.slot_upgr.txt, self.slot_upgr.txt_sh)
+
+            local pos = self.slot_upgr.icon:GetWndPos()
+            self.slot_upgr.icon_sh:SetWndPos(vector2():set( pos.x + 1 , pos.y + 2 ))
+            self.slot_upgr.txt_sh:SetWndPos(vector2():set( pos.x + 1 , pos.y + 1 ))
+
+            self.slot_upgr.txt_sh:SetText(txt)
+            self.slot_upgr.txt:SetText(txt)
+            self.slot_upgr.txt:SetTextColor(v.txt:GetTextColor())
+        else
+            local ele = self.traits_list:GetElementByIndex(self.cont.traits[self.selected.id].indx)
+            if ele then
+                local v = self.slot_upgr
+                local width = ele.W
+                local height = ele.H
+                local axis = ele.axis
+
+                self.slot_upgr.wnd:SetColor(ele:GetIndicatorColor())
+
+                v.icon_sh:InitTexture(ele.texture)
+                v.icon:InitTexture(ele.texture)
+                v.icon_sh:SetTextureRect(Frect():set(axis.x1, axis.y1, axis.x2, axis.y2))
+                v.icon:SetTextureRect(Frect():set(axis.x1, axis.y1, axis.x2, axis.y2))
+                v.icon_sh:SetTextureColor(self.clr.shadow)
+            
+                v.icon_sh:SetWndSize(vector2():set( width , height ))
+                utils_xml.sync_size(v.icon_sh, v.icon)
+            
+                local pos_x = v.wnd:GetWidth() / 2 - width / 2
+                local pos_y = v.wnd:GetHeight() / 2 - height / 2
+                v.icon_sh:SetWndPos(vector2():set( pos_x + 1 , pos_y + 2 ))
+                v.icon:SetWndPos(vector2():set( pos_x , pos_y ))
+            
+                local txt = ele:GetText()
+                v.txt:SetTextColor(ele:GetTextColor())
+                v.txt_sh:SetText(txt)
+                v.txt:SetText(txt)
+                utils_xml.sync_element(v.txt, v.icon)
+                utils_xml.sync_size(v.txt, v.txt_sh)
+                v.txt_sh:SetWndPos(vector2():set( pos_x + 1 , pos_y + 1 ))
+            end
+        end
+        self.slot_upgr.wnd:Show(true)
+        self:PlaySND("ui_generic_1")
+
+    elseif self.controls.mode == 2 then     -- On upgrade
+        local warning_threshold = math.floor((tr_mngr:get_option(self.upgr_mode.sec, "max_level") / 2) / self.upgr_mode.quality)
+        if self.upgr_mode.curr_level >= warning_threshold then
+            self.msg_box_mode = "on_upgrade"
+            self.msg_box:InitMessageBox("yes_no")
+            self.msg_box:AddCapText(game.translate_string("ui_experience_traits_wnd_trait_warning_msg_on_upgrade"))
+            self.msg_box:ShowMessage()
+            self:PlaySND("ui_generic_1")
+        else
+            self:Callback_OnMSG_Yes("on_upgrade")
+        end
+    end
+end
+
+function UIExperienceTraits:Callback_OnButtonDestroy(dont_play_sound)
+    if self.controls.mode == 1 then     -- Destroy trait
+        self.msg_box_mode = "on_destroy"
+        self.msg_box:InitMessageBox("yes_no")
+        self.msg_box:AddCapText(game.translate_string("ui_experience_traits_wnd_trait_warning_msg_on_destroy"))
+        self.msg_box:ShowMessage()
+
+    elseif self.controls.mode == 2 then     -- Close upgrade mode
+        self.controls.mode = 1
+        self.upgr_mode.name = nil
+        self.upgr_mode.sec = nil
+        self.upgr_mode.curr_level = nil
+        self.upgr_mode.quality = nil
+        self.upgr_mode.chance = 0
+        self:UnselectTrait()
+        self:UnsetUpgradeDelay()
+
+        self.slot_upgr.wnd:Show(false)
+        self:ShowSlots(true)
+        self:ShowControls(false)
+        self.traits_list_upgrade:Show(false)
+        self.traits_list:Show(true)
+        self.traits_list:Reset()
+    end
+
+    if not dont_play_sound then
+        self:PlaySND("ui_generic_1")
+    end
+end
+
+function UIExperienceTraits:Callback_OnMSG_Yes(force)
+    if (force and force == "on_upgrade") or self.msg_box_mode == "on_upgrade" then
+        self.msg_box_mode = "none"
+        self:SetUpgradeDelay()
+
+        local tr = tr_mngr:trait_by_id(self.selected.id)
+        if math.random(100) <= self.upgr_mode.chance then
+            tr:set_level(tr:level() + 1)
+            local curr_level = tr:level()
+            self.slot_upgr.txt_sh:SetText("+" .. curr_level)
+            self.slot_upgr.txt:SetText("+" .. curr_level)
+
+            if self.cont.traits[self.selected.id] then
+                local ele = self.traits_list:GetElementByIndex(self.cont.traits[self.selected.id].indx)
+                ele:SetText("+" .. curr_level)
+            elseif self.selected.slot then
+                self.slots[self.selected.slot].txt_sh:SetText("+" .. curr_level)
+                self.slots[self.selected.slot].txt:SetText("+" .. curr_level)
+            end
+            self:PlayPPFX("cyan", 150)
+            self:StopSND("upgrade_trait_fail")
+            self:PlaySND("upgrade_trait_success")
+            self:SetMsg(strformat(game.translate_string("ui_experience_traits_wnd_upgrade_trait_success_msg"), tr:name(), curr_level), 2)
+        else
+            self:PlayPPFX("red", 150)
+            self:StopSND("upgrade_trait_success")
+            self:PlaySND("upgrade_trait_fail")
+            self:SetMsg(game.translate_string("ui_experience_traits_wnd_upgrade_trait_fail_msg"), 2)
+        end
+
+        self:UpgradeMode_RemoveTrait(self.upgr_mode.name)
+
+        if tr:is_max() then
+            self:Callback_OnButtonDestroy(true)     -- close upgrade mode
+            return
+        end
+
+        if is_empty(self.cont.upgrade[self.upgr_mode.name]) then
+            if self.traits_list_upgrade:IsEmpty() then
+                self:Callback_OnButtonDestroy(true)     -- close upgrade mode
+            else
+                self.upgr_mode.name = nil
+                self.upgr_mode.sec = nil
+                self.upgr_mode.curr_level = nil
+                self.upgr_mode.quality = nil
+                self.upgr_mode.chance = 0
+                self:ShowControls(true)
+                self.traits_list_upgrade:Sort()
+            end
+        else
+            self:UpdateUpgradeChance()
+            self.controls.btn_upgrade:TextControl():SetText(strformat(game.translate_string("ui_experience_traits_wnd_trait_upgrade_mode_2"), tr:level() + 1, self.upgr_mode.chance))
+        end
+
+    elseif (force and force == "on_destroy") or self.msg_box_mode == "on_destroy" then
+        self.msg_box_mode = "none"
+        local exp = self:GetDestroyExp(self.selected.id)
+        if exp > 0 then
+            experience_utils.IncreaseExperience(exp, nil, true)
+            self:UpdateActorStats()
+            self:PlaySND("destroy_trait")
+            self:PlayPPFX("blue", 230)
+        end
+        self:RemoveTrait(self.selected.id, true)
+        self.traits_list:Sort()
+
+    elseif (force and force == "inc_quality") or self.msg_box_mode == "inc_quality" then
+        self.msg_box_mode = "none"
+
+        local id = self.selected.id
+        local tr = tr_mngr:trait_by_id(id)
+        tr:set_quality(tr:quality() + 1)
+        tr:set_level(1)
+
+        local curr_level = tr:level()
+        local qual = tr:quality()
+        if self.cont.traits[id] then
+            local ele = self.traits_list:GetElementByIndex(self.cont.traits[id].indx)
+            ele:SetText("+" .. curr_level)
+            ele:SetIndicatorColor(self.quality_colors[qual])
+            self.traits_list:Sort()
+
+        elseif self.selected.slot then
+            self.slots[self.selected.slot].txt_sh:SetText("+" .. curr_level)
+            self.slots[self.selected.slot].txt:SetText("+" .. curr_level)
+            self.slots[self.selected.slot].clr = self.quality_colors[qual]
+        end
+        self.inc_quality_flag = nil
+        self:ShowControls(true)
+
+        self:SetMsg(strformat(game.translate_string(self.inc_quality_msg[qual]), tr:name()), 6)
+        self:PlaySND("inc_trait_quality")
+        self:StopPPFX(true)
+        self:PlayPPFX(nil, 255, self.ppfx_quality_colors[qual])
+    end
+end
+
+function UIExperienceTraits:Callback_OnMSG_No()
+    if self.msg_box_mode == "inc_quality" then
+        self:StopPPFX()
+    end
+    self.msg_box_mode = "none"
+    self:PlaySND("menu_click_1")
+end
+
+----------------------------------------------------
+-- Spawner
+----------------------------------------------------
+function UIExperienceTraits:Callback_OpenSpawnerMenu()
+    self.dialog:Show(false)
+    self.spawner_dialog:Show(true)
+
+    if not self.spwnr then
+        self.spwnr = {}
+    end
+    empty_table(self.spwnr)
+    self.spwnr[1] = {}
+    self.spwnr[2] = {}
+    self.spawner_trait_list:ClearList()
+    self.spawner_trait_list:SetText("Select Trait")
+
+    local cnt = 0
+    for sec, op in pairs(tr_mngr.loaded_traits) do
+        cnt = cnt + 1
+        self.spwnr[1][cnt] = {sec = sec, max_level = op.max_level}
+        self.spawner_trait_list:AddItem(game.translate_string(SYS_GetParam(0, sec, "inv_name") or ""), cnt)
+    end
+
+    self.spawner_trait_list_qual:ClearList()
+    self.spawner_trait_list_qual:SetText("Select Quality")
+    local qual_list = {
+        "Awful",
+        "Bad",
+        "Common",
+        "Good",
+        "Epical",
+        "Legendary",
+        "Mythical"
+    }
+    for i=1, #qual_list do
+        self.spawner_trait_list_qual:AddItem(qual_list[i], i)
+    end
+
+    self.spawner_entry:SetText("1")
+    self.spawner_trait_list:Show(true)
+    self.spawner_trait_list_lvl:Show(false)
+    self.spawner_trait_list_qual:Show(false)
+    self.spawner_btn_on_spawn:Show(false)
+end
+
+function UIExperienceTraits:Callback_Spawner_OnSelectTrait()
+    local idx = self.spawner_trait_list:GetCurrentID()
+    self.spwnr[2].sec = self.spwnr[1][idx].sec
+
+    self.spwnr[2].lvl = nil
+    self.spawner_trait_list_lvl:ClearList()
+    self.spawner_trait_list_lvl:SetText("Select Level")
+    for i=1, self.spwnr[1][idx].max_level do
+        self.spawner_trait_list_lvl:AddItem("+" .. i, i)
+    end
+
+    self.spawner_btn_on_spawn:Show(false)
+    self.spawner_trait_list_lvl:Show(true)
+    self.spawner_trait_list_qual:Show(true)
+end
+
+function UIExperienceTraits:Callback_Spawner_OnSelectLevel()
+    self.spwnr[2].lvl = self.spawner_trait_list_lvl:GetCurrentID()
+    if self.spwnr[2].qual then
+        self.spawner_btn_on_spawn:Show(true)
+    end
+end
+
+function UIExperienceTraits:Callback_Spawner_OnSelectQuality()
+    self.spwnr[2].qual = self.spawner_trait_list_qual:GetCurrentID()
+    if self.spwnr[2].lvl then
+        self.spawner_btn_on_spawn:Show(true)
+    end
+end
+
+function UIExperienceTraits:Callback_Spawner_BtnOnSpawn()
+    local amount = tonumber(self.spawner_entry:GetText())
+    amount = amount and math.floor(amount) or 1
+    if amount < 1 then
+        amount = 1
+    end
+
+    for i=1, amount do
+        tr_mngr:on_spawn(self.spwnr[2].sec, self.spwnr[2].qual, self.spwnr[2].lvl)
+    end
+    self:Reset()
+    self:PlaySND("inc_trait_quality")
+end

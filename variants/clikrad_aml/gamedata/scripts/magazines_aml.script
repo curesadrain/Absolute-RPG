@@ -1,0 +1,534 @@
+--[[
+    Animated Magazine Loading - driver module
+    Compatibility layer for Mags Reloaded by Priler
+
+    This is the whole AML runtime as a load-driver for Mags Reloaded.
+    Thus it can be edited no issues without the need to overwrite scripts of Mags Reloaded.
+    To achieve this, it implements a CONTRACT pattern:
+        driver.claim(magazine, is_unload, capacity, delay) -> bool
+            return true to take over the per-round loop for this load/unload
+        driver.interrupt()
+            stop, remove the cam effector and play the hide anim
+        driver.is_animating() -> bool (optional)
+            true while any driver animation (including the hide) is in flight
+
+    Rounds are moved by the host: magazines.load_one_round / unload_one_round.
+    The host owns the mag data, holster bookkeeping and action state, etc.
+    This module owns only the HUD animation, the cam effector and the per-mag sounds.
+    Loading speed here is driven by animation length, not the host load-delay setting.
+--]]
+
+-- Host seam revision this build targets.
+-- The bridge refuses to register us if it does not match magazines.SEAM_CONTRACT,
+-- so a host change cannot silently break.
+VERSION = 1 -- aml ver
+CONTRACT = 1 -- contract ver !!! (can be changed only if both AML and Mags Reloaded updates their contracts)
+
+local get_data = magazine_binder.get_data
+
+-- tuning
+local CAM_ID = 7531
+local SHOW_SPEED = 0.7
+local HIDE_SPEED = 0.7
+local LOOP_SPEED_LOAD = 1.0
+local LOOP_SPEED_UNLOAD = 1.2
+local UNLOAD_LOOP_MS = 500 -- unload idle anims are short, force a fixed loop
+local MAX_TIER = 6 -- per-count anims defined for 0..6, parity above
+local LAM2_WAIT_MS = 5000 -- max wait for lam2 to hand us the anim channel
+
+-- playback speed multipliers, pushed by the compat bridge. 1.0 = base.
+local load_speed_mult = 1.0
+local unload_speed_mult = 1.0
+
+local function rpg_speed_mult(is_unload)
+    local rpg = z_cxv_experience_perk_mag_loading
+    if rpg and type(rpg.speed_multiplier) == "function" then
+        return rpg.speed_multiplier(is_unload)
+    end
+    return 1.0
+end
+
+-- clamp to the MCM slider range so a stray push cannot stall or race the loop
+local function clamp_speed(v)
+	v = tonumber(v) or 1.0
+	if v < 0.5 then
+		return 0.5
+	end
+	if v > 2.0 then
+		return 2.0
+	end
+	return v
+end
+
+function set_speed(load_mult, unload_mult)
+	load_speed_mult = clamp_speed(load_mult)
+	unload_speed_mult = clamp_speed(unload_mult)
+end
+
+-- states
+local ST_DRAW = 0 -- holster, wait for empty hands, play draw
+local ST_INSERT = 1 -- wait for draw to finish, start first round anim
+local ST_LOOP = 2 -- one anim per round, move a round at the sync mark
+local ST_HIDE = 3 -- hide anim playing
+local ST_DONE = 4 -- waiting for hide to finish, then reset
+
+-- driver state for the single load/unload in flight
+local D = {
+	active = false,
+	shutting_down = false,
+}
+
+-- lam2 (FDDA Redone) serialization ---
+
+-- single reusable action: stacking one per load would pin the queue forever
+local lam2_action = nil
+local function get_lam2_action()
+	if lam2_action then
+		return lam2_action
+	end
+	local a = {}
+	a.tag = "mag_loading"
+	a.name = "mag_loading"
+	a.can_skip = false
+	a.tail = 0
+	a.enter = function(self)
+		self.tail = 0
+	end
+	a.execute = function(self)
+		if D.active then
+			self.tail = 0
+			return lam2.states.running
+		end
+
+		self.tail = self.tail + 1
+		if self.tail >= 3 then
+			return lam2.states.success
+		end
+		return lam2.states.running
+	end
+	a.on_skip = function(self)
+		-- lam2.abort (actor death) skips us: shut the load down through the host
+		if magazines.is_loading_mag and magazines.is_loading_mag() then
+			magazines.do_interrupt()
+		end
+	end
+	a.exit = function(self)
+		-- FDDA leaves these pinned when its idle yielded the queue to us
+		if liz_fdda_redone_backpack then
+			liz_fdda_redone_backpack.is_force_close = false
+		end
+		if zzz_ea_addon_backpack then
+			zzz_ea_addon_backpack.ea_force_inventory_close = false
+		end
+	end
+	lam2_action = a
+	return a
+end
+
+-- returns true when lam2 is present and the marker is queued or already current
+local function lam2_queue_marker()
+	if not (lam2 and lam2.add_action and lam2.states) then
+		return false
+	end
+	if lam2.get_action_with_tag and lam2.get_action_with_tag("mag_loading") then
+		return true
+	end
+	lam2.add_action(get_lam2_action())
+	return true
+end
+
+-- true once we own the anim channel (marker current), or when lam2 is absent
+local function lam2_gate_open()
+	if not D.lam2_gated then
+		return true
+	end
+	local act = lam2.get_current_action and lam2.get_current_action()
+	return (act and act.tag == "mag_loading") and true or false
+end
+
+-- anim selectors (per bullet count "tier") ---
+local function get_show_anim(tier)
+	if tier >= 0 and tier <= MAX_TIER then
+		return "anm_show_" .. tier
+	end
+	if tier % 2 == 1 then
+		return "anm_show"
+	end
+	return "anm_show2"
+end
+
+local function get_idle_anim(tier)
+	if tier > MAX_TIER then
+		if tier % 2 == 1 then
+			return "anm_idle"
+		end
+		return "anm_idle2"
+	end
+	return "anm_idle_" .. tier
+end
+
+local function get_hide_anim(tier)
+	if tier >= 0 and tier <= MAX_TIER then
+		return "anm_hide_" .. tier
+	end
+	if tier % 2 == 1 then
+		return "anm_hide"
+	end
+	return "anm_hide2"
+end
+
+local function get_show_anim_unload(tier)
+	if tier >= 0 and tier <= MAX_TIER then
+		return "anm_show_unload_" .. tier
+	end
+	if tier % 2 == 1 then
+		return "anm_show_unload"
+	end
+	return "anm_show_unload2"
+end
+
+local function get_idle_anim_unload(tier)
+	if tier == 0 then
+		return "anm_idle_unload"
+	end
+	if tier > MAX_TIER then
+		if tier % 2 == 1 then
+			return "anm_idle_unload"
+		end
+		return "anm_idle_unload2"
+	end
+	return "anm_idle_unload_" .. tier
+end
+
+local function get_hide_anim_unload(tier)
+	if tier >= 0 and tier <= MAX_TIER then
+		return "anm_hide_unload_" .. tier
+	end
+	if tier % 2 == 1 then
+		return "anm_hide_unload"
+	end
+	return "anm_hide_unload2"
+end
+
+local function show_anim_for(tier, is_unload)
+	return is_unload and get_show_anim_unload(tier) or get_show_anim(tier)
+end
+local function idle_anim_for(tier, is_unload)
+	return is_unload and get_idle_anim_unload(tier) or get_idle_anim(tier)
+end
+local function hide_anim_for(tier, is_unload)
+	return is_unload and get_hide_anim_unload(tier) or get_hide_anim(tier)
+end
+
+-- per-mag HUD section and sound, from magazines_aml_mapping.ltx ---
+local mapping_ini = nil
+local function mapping()
+	if not mapping_ini then
+		mapping_ini = ini_file("magazines_aml_mapping.ltx")
+	end
+	return mapping_ini
+end
+
+local function default_hud(is_unload)
+	return is_unload and "m4_mag_unloading_hud" or "m4_mag_loading_hud"
+end
+
+local function raw_hud_section(mag_sec, is_unload)
+	local ini = mapping()
+	local key = is_unload and "unloading_hud" or "loading_hud"
+	if ini and ini:section_exist(mag_sec) and ini:line_exist(mag_sec, key) then
+		return ini:r_string_ex(mag_sec, key) or default_hud(is_unload)
+	end
+	return default_hud(is_unload)
+end
+
+-- resolve to a HUD section that actually carries the AML anims
+-- a mapped section missing them would crash the engine, so fall back to the default in that case
+local function resolve_hud(mag_sec, is_unload)
+	local sec = raw_hud_section(mag_sec, is_unload)
+	local def = default_hud(is_unload)
+	if sec ~= def and ini_sys:section_exist(sec) then
+		local probe = is_unload and "anm_show_unload_0" or "anm_show_0"
+		if not ini_sys:line_exist(sec, probe) then
+			return def
+		end
+	end
+	return sec
+end
+
+local function load_sound(mag_sec)
+	local ini = mapping()
+	if ini and ini:section_exist(mag_sec) and ini:line_exist(mag_sec, "load_sound") then
+		if ini:r_string_ex(mag_sec, "load_sound") == "polymer" then
+			return "magazines\\polymer_load" .. math.random(1, 3)
+		end
+	end
+	return "magazines\\ammo_load" .. math.random(1, 7)
+end
+
+-- HUD motion and cam effector ---
+-- play an anim on the active HUD section, return its length in ms
+local function play(anim, speed)
+	if not game.play_hud_motion then
+		return 1000
+	end
+	-- scale the base anim speed by the load/unload multiplier for the current op
+	speed = (speed or 1.0) * (D.is_unload and unload_speed_mult or load_speed_mult) * rpg_speed_mult(D.is_unload)
+	local ok, len = pcall(game.play_hud_motion, 2, D.hud_sec, anim, true, speed)
+	if ok and len then
+		return len
+	end
+	local def = default_hud(D.is_unload)
+	if D.hud_sec ~= def then
+		local ok2, len2 = pcall(game.play_hud_motion, 2, def, anim, true, speed)
+		if ok2 and len2 then
+			return len2
+		end
+	end
+	return 1000
+end
+
+local function add_cam()
+	if not magazines_mcm.get_config("aml_camera_effects") then
+		return
+	end
+	local anm = D.is_unload and "camera_effect\\hand_m4_mag_unload.anm" or "camera_effect\\hand_m4_mag_load.anm"
+	level.add_cam_effector(anm, CAM_ID, true, "")
+end
+
+local function remove_cam()
+	level.remove_cam_effector(CAM_ID)
+end
+
+-- state machine --
+local function current_loaded()
+	local md = get_data(D.mag_id)
+	return (md and type(md.loaded) == "table") and #md.loaded or 0
+end
+
+local function reset()
+	D.active = false
+	D.shutting_down = false
+	D.mag = nil
+	D.mag_id = nil
+end
+
+local function finish()
+	remove_cam()
+	reset()
+	-- guarantee the host state is cleared even if we ended on a count rather than a host "done"
+	-- do_interrupt is a no-op when already idle
+	if magazines.is_loading_mag and magazines.is_loading_mag() then
+		magazines.do_interrupt()
+	end
+	if magazines.inventory_refresh then
+		magazines.inventory_refresh(1)
+	end
+end
+
+local function go_hide(now)
+	local tier = D.idle_tier
+	if D.is_unload and current_loaded() == 0 then
+		tier = 0
+	end
+	remove_cam()
+	D.hide_end = now + play(hide_anim_for(tier, D.is_unload), HIDE_SPEED)
+	D.state = ST_HIDE
+end
+
+local function start_round_anim(now)
+	-- load shows the count it is moving TO (current + 1), unload shows current
+	local idle_tier = D.is_unload and D.current_tier or (D.current_tier + 1)
+	D.idle_tier = idle_tier
+	local speed = D.is_unload and LOOP_SPEED_UNLOAD or LOOP_SPEED_LOAD
+	D.anim_dur = play(idle_anim_for(idle_tier, D.is_unload), speed)
+	if D.is_unload then
+		-- unload cadence is a fixed loop; scale it by the multiplier so a faster
+		-- anim also moves rounds faster (and a slower one, slower)
+		D.anim_dur = UNLOAD_LOOP_MS / unload_speed_mult / rpg_speed_mult(true)
+	end
+	if not D.anim_dur or D.anim_dur <= 50 then
+		D.anim_dur = 1000
+	end
+	D.last_time = now
+	D.sound_done = false
+end
+
+local function move_one_round()
+	if D.is_unload then
+		return magazines.unload_one_round(D.mag, true)
+	end
+	return magazines.load_one_round(D.mag, D.capacity, true)
+end
+
+local function tick()
+	if not D.active then
+		return
+	end
+	local actor = db.actor
+	if not actor then
+		finish()
+		return
+	end
+	local now = time_global()
+
+	-- FDDA / enhanced-animation item in use conflicts with our HUD anim
+	-- bail out cleanly through the host (which calls our interrupt)
+	if enhanced_animations and enhanced_animations.used_item then
+		magazines.do_interrupt()
+	end
+
+	if D.state == ST_DRAW then
+		-- wait until the weapon is fully holstered and the hands are empty
+		if actor:active_slot() ~= 0 then
+			actor:activate_slot(0)
+			return
+		end
+		if actor:active_item() then
+			return
+		end
+		if D.shutting_down then
+			finish()
+			return
+		end
+		-- wait for lam2 to finish its current hand animation (body-search end,
+		-- backpack close) and make our marker current, so we never fight it for
+		-- the single script-anim channel (bruh)
+		if not lam2_gate_open() then
+			if now > D.wait_start + LAM2_WAIT_MS then
+				-- lam2 never yielded: cancel cleanly instead of risking a stomp
+				magazines.do_interrupt()
+			end
+			return
+		end
+		D.draw_end = now + play(show_anim_for(D.starting_tier, D.is_unload), SHOW_SPEED)
+		D.state = ST_INSERT
+		return
+	end
+
+	if D.state == ST_INSERT then
+		if now < D.draw_end then
+			return
+		end
+		if D.shutting_down then
+			go_hide(now)
+			return
+		end
+		add_cam()
+		start_round_anim(now)
+		D.state = ST_LOOP
+		return
+	end
+
+	if D.state == ST_LOOP then
+		-- sound and the actual round move happen partway through the insert anim
+		if not D.sound_done then
+			local sync = D.is_unload and 0.1 or 0.3
+			if now >= D.last_time + D.anim_dur * sync then
+				utils_obj.play_sound(load_sound(D.mag_sec))
+				D.finished = move_one_round()
+				D.done_count = D.done_count + 1
+				D.sound_done = true
+			end
+		end
+
+		-- round anim complete: advance the visible tier and either loop or hide
+		if now >= D.last_time + D.anim_dur then
+			if D.is_unload then
+				D.current_tier = math.max(0, D.current_tier - 1)
+			else
+				D.current_tier = D.current_tier + 1
+			end
+			D.idle_tier = D.current_tier
+
+			if D.finished or D.shutting_down or D.done_count >= D.total then
+				go_hide(now)
+			else
+				start_round_anim(now)
+			end
+		end
+		return
+	end
+
+	if D.state == ST_HIDE then
+		if now >= D.hide_end then
+			finish()
+		end
+		return
+	end
+end
+
+-- driver contract --
+local function claim(magazine, is_unload, capacity, delay)
+	if not (db.actor and magazine) then
+		return false
+	end
+
+	local mag_id = magazine:id()
+	local mag_sec = magazine:section()
+	local cap = capacity or SYS_GetParam(2, mag_sec, "max_mag_size") or 30
+	local md = get_data(mag_id)
+	local cur = (md and type(md.loaded) == "table") and #md.loaded or 0
+
+	local total
+	if is_unload then
+		if cur <= 0 then
+			return false
+		end
+		total = cur
+	else
+		local space = cap - cur
+		if space <= 0 then
+			return false
+		end
+		total = space
+	end
+
+	D.active = true
+	D.shutting_down = false
+	D.mag = magazine
+	D.mag_id = mag_id
+	D.mag_sec = mag_sec
+	D.capacity = cap
+	D.is_unload = is_unload and true or false
+	D.hud_sec = resolve_hud(mag_sec, D.is_unload)
+	D.total = total
+	D.done_count = 0
+	D.finished = false
+	D.starting_tier = cur
+	D.current_tier = cur
+	D.idle_tier = cur
+	D.state = ST_DRAW
+	D.wait_start = time_global()
+	D.lam2_gated = lam2_queue_marker()
+
+	-- hands must be free for the HUD anim even if holster_on_load is off
+	magazines.ensure_load_holster()
+	return true
+end
+
+-- called by the host do_interrupt (natural end and cancel both route here)
+local function interrupt()
+	if not D.active then
+		return
+	end
+	D.shutting_down = true
+	-- nothing drawn yet: end immediately, no hide anim to play
+	if D.state == ST_DRAW then
+		finish()
+	end
+end
+
+-- is_animating lets the host hold the weapon re-draw until our hide anim is done
+local function is_animating()
+	return D.active and true or false
+end
+
+local DRIVER = { claim = claim, interrupt = interrupt, is_animating = is_animating }
+function get_driver()
+	return DRIVER
+end
+
+function on_game_start()
+	RegisterScriptCallback("actor_on_update", tick)
+end

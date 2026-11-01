@@ -1,0 +1,990 @@
+----------------------------------------------------
+-- Experience Framework
+-- Skills UI
+----------------------------------------------------
+
+
+local skills_sort_methods = {
+	[1] = function(t,a,b)	-- Alphabetically (from A to Z)
+		local a_name = experience_core.GetSkillOption(a, "name")
+		local b_name = experience_core.GetSkillOption(b, "name")
+		return game.translate_string(a_name) < game.translate_string(b_name)
+	end,
+	[2] = function(t,a,b)	-- Alphabetically (from Z to A)
+		local a_name = experience_core.GetSkillOption(a, "name")
+		local b_name = experience_core.GetSkillOption(b, "name")
+		return game.translate_string(a_name) > game.translate_string(b_name)
+	end,
+	[3] = function(t,a,b)	-- By maximum required level
+		local a_req_level = experience_utils.NormalizeReqLevel(a, experience_core.GetSkillOption(a, "max_level"), true)
+		local b_req_level = experience_utils.NormalizeReqLevel(b, experience_core.GetSkillOption(b, "max_level"), true)
+		return a_req_level < b_req_level
+	end,
+	[4] = function(t,a,b)	-- By current required level
+		local a_req_level = experience_utils.NormalizeReqLevel(a, experience_core.GetSkillData(a).curr_level)
+		local b_req_level = experience_utils.NormalizeReqLevel(b, experience_core.GetSkillData(b).curr_level)
+		return a_req_level < b_req_level
+	end
+}
+
+local function exec_stat(func,...)
+    if func then
+        return func(...)
+    end
+end
+
+
+----------------------------------------------------
+GUI = nil
+function get_ui(owner, xml)
+    if GUI == nil then
+        GUI = UIExperienceSkills(owner, xml)
+    end
+    return GUI
+end
+----------------------------------------------------
+-- Class "UIExperienceSkills"
+----------------------------------------------------
+class "UIExperienceSkills" (CUIWindow)
+function UIExperienceSkills:__init(owner, xml) super()
+    self.owner = owner
+    self.xml = xml
+
+    self.ratio = utils_xml.screen_ratio()
+    self.clr = self.owner.clr
+    self.skills = {}
+    self.curr_skill = {}
+    self.skill_controls = {}
+    self.edit_mode = false
+    self.editors = {req_level = {}, each_level = {}, req_prestige = {}}
+    self.categories = {}
+    self.category_curr_idx = 0
+
+    self.description_text = nil
+    self.view_level = 0
+    self.learn_button_pressed = false
+    self.can_learn_skill = false
+    self.learn_hold_tg = 0
+    self.learn_hold_tmr = 0
+
+    self:InitControls()
+    self:InitCallBacks()
+end
+
+function UIExperienceSkills:InitControls()
+    local xml = self.xml
+
+    self.dialog                                 = xml:InitStatic("skills_wnd:frame", self)
+    self.skills_scrollbar                       = xml:InitScrollView("skills_wnd:skills_scrollbar", self.dialog)
+    self.description_scrollbar                  = xml:InitScrollView("skills_wnd:description_scrollbar", self.dialog)
+    self.description_scrollbar:Show(false)
+
+    self.skill_controls.wnd                     = xml:InitStatic("skills_wnd:skill_conntrols", self.dialog)
+    self.skill_controls.prev                    = xml:Init3tButton("skills_wnd:skill_conntrols:prev_lvl_tip", self.skill_controls.wnd)
+    self.skill_controls.next                    = xml:Init3tButton("skills_wnd:skill_conntrols:next_lvl_tip", self.skill_controls.wnd)
+    self.skill_controls.lvl_txt                 = xml:InitTextWnd("skills_wnd:skill_conntrols:selected_lvl", self.skill_controls.wnd)
+    self.skill_controls.lvl_tip                 = xml:InitTextWnd("skills_wnd:skill_conntrols:selected_lvl_tip", self.skill_controls.wnd)
+    self.skill_controls.lvl_tip_btn_b           = xml:InitFrame("skills_wnd:skill_conntrols:selected_lvl_btn_frame", self.skill_controls.wnd)
+    self.skill_controls.lvl_tip_btn             = xml:Init3tButton("skills_wnd:skill_conntrols:selected_lvl_btn", self.skill_controls.lvl_tip_btn_b)
+    self.skill_controls.state                   = xml:InitTextWnd("skills_wnd:skill_conntrols:state_skill_tip", self.skill_controls.wnd)
+    self.learn_btn = xml:Init3tButton("skills_wnd:skill_conntrols:learn_btn", self.skill_controls.wnd)
+    self:Register(self.learn_btn, "learn_mouse_btn")
+    self.learn_edges = {}
+    for i = 1, 4 do
+        self.learn_edges[i] = xml:InitStatic("skills_wnd:skill_conntrols:learn_progress", self.learn_btn)
+        self.learn_edges[i]:Enable(false)
+        self.learn_edges[i]:Show(false)
+    end
+    self.learn_btn:Show(false)
+    self:Register(self.skill_controls.prev, "level_prev_btn")
+    self:Register(self.skill_controls.next, "level_next_btn")
+    self.skill_controls.lvl_tip_btn:TextControl():SetText(game.translate_string("ui_experience_skills_wnd_selected_requirements"))
+    self:Register(self.skill_controls.lvl_tip_btn, "button_lvl_requirements")
+    self.skill_controls.lvl_tip_btn_b:Show(false)
+    self.skill_controls.wnd:Show(false)
+
+    self.editor_btn_save_b                      = xml:InitFrame("skills_wnd:editor_mode:frame_btn_save", self.dialog)
+    self.editor_btn_save                        = xml:Init3tButton("skills_wnd:editor_mode:btn_save", self.editor_btn_save_b)
+    self:Register(self.editor_btn_save, "save_editor")
+    self.editor_btn_save_b:Show(false)
+
+    self.editor_btn_reset_b                     = xml:InitFrame("skills_wnd:editor_mode:frame_btn_reset", self.dialog)
+    self.editor_btn_reset                       = xml:Init3tButton("skills_wnd:editor_mode:btn_reset", self.editor_btn_reset_b)
+    self:Register(self.editor_btn_reset, "reset_editor")
+    self.editor_btn_reset_b:Show(false)
+
+    local other_categories = {}
+    local misc_category = {}
+    for id, v in pairs(experience_core.GetLoadedSkills()) do
+        self.skills[id] = {}
+        self.skills[id].wnd = xml:InitStatic("skills_wnd:skill_st", nil)
+        self.skills[id].name = xml:InitTextWnd("skills_wnd:skill_name", self.skills[id].wnd)
+        self.skills[id].icon = xml:InitStatic("skills_wnd:skill_icon", self.skills[id].wnd)
+        if v.icon ~= "" then
+            self.skills[id].icon:InitTexture(v.icon)
+        end
+        self.skills[id].icon:SetWndSize(vector2():set(self.skills[id].icon:GetWidth() * self.ratio, self.skills[id].icon:GetHeight()))
+        self.skills[id].btn = xml:InitCheck("skills_wnd:skill_btn", self.skills[id].wnd)
+        self.skills[id].btn:SetCheck(false)
+
+        self:Register(self.skills[id].btn, "select_skill_" .. id)
+        local _wrapper = function(self)
+            self:Callback_Skill(id)
+        end
+        self:AddCallback("select_skill_" .. id, ui_events.BUTTON_CLICKED, _wrapper, self)
+        self.skills[id].wnd:Show(false)
+
+        if (v.category and v.category ~= "" and v.category ~= "misc") then
+            if not other_categories[v.category] then
+                other_categories[v.category] = {}
+            end
+            other_categories[v.category][id] = true
+        else
+            misc_category[id] = true
+        end
+    end
+
+    for k, v in spairs(other_categories, function(t,a,b) return game.translate_string(a) < game.translate_string(b) end) do
+        table.insert(self.categories, {text = game.translate_string(k), content = v})
+    end
+    if is_not_empty(misc_category) then
+        table.insert(self.categories, {text = game.translate_string("ui_experience_skills_wnd_skill_category_misc"), content = misc_category})
+    end
+
+    xml:InitTextWnd("skills_wnd:show_hidden_cap", self.dialog)
+    self.show_hidden_btn = xml:InitCheck("skills_wnd:show_hidden_btn", self.dialog)
+    self.show_hidden_btn:SetCheck(experience_utils.ReadConfig("ui_skills", "show_hidden_skills", 1, false))
+    self:Register(self.show_hidden_btn, "show_hidden_skills")
+    xml:InitTextWnd("skills_wnd:skill_conntrols:hide_skill_cap", self.skill_controls.wnd)
+    self.hide_skill_btn = xml:InitCheck("skills_wnd:skill_conntrols:hide_skill_btn", self.skill_controls.wnd)
+    self:Register(self.hide_skill_btn, "hide_selected_skill")
+
+    xml:InitTextWnd                             ("skills_wnd:hide_lrn_skill_cap", self.dialog)
+    self.hide_lrn_skill_btn                     = xml:InitCheck("skills_wnd:hide_lrn_skill_btn", self.dialog)
+    self.hide_lrn_skill_btn:SetCheck(experience_utils.ReadConfig("ui_skills", "hide_learned_skills", 1, false))
+    self:Register(self.hide_lrn_skill_btn, "hide_learned_skills")
+
+    xml:InitTextWnd                             ("skills_wnd:sort_list_cap", self.dialog)
+    self.sort_list                              = experience_ui.UIComboBoxCustom(xml, "skills_wnd:sort_list", self.dialog)
+    for i=1, #skills_sort_methods do
+        self.sort_list:AddItem(game.translate_string("ui_experience_skills_wnd_skill_sort_list_" .. i), i)
+    end
+    self.sort_list:SetCurrentID(experience_utils.ReadConfig("ui_skills", "skills_sort_method", 2, 1))
+
+    xml:InitTextWnd                             ("skills_wnd:skill_edit_mode_cap", self.dialog)
+    self.edit_mode_btn                          = xml:InitCheck("skills_wnd:skill_edit_mode_btn", self.dialog)
+    self.edit_mode_btn:SetCheck(false)
+    self:Register(self.edit_mode_btn, "switch_edit_mode")
+
+    self.category_cap                           = xml:InitTextWnd("skills_wnd:category_cap", self.dialog)
+    self.category_cap:SetEllipsis(true)
+    self.category_cap:SetText(game.translate_string("ui_experience_skills_wnd_skill_category_all"))
+    self.category_left_btn                      = xml:Init3tButton("skills_wnd:category_left_btn", self.dialog)
+    self:Register(self.category_left_btn, "category_left_btn")
+    self.category_right_btn                     = xml:Init3tButton("skills_wnd:category_right_btn", self.dialog)
+    self:Register(self.category_right_btn, "category_right_btn")
+
+    if is_empty(self.skills) then
+        self.show_hidden_btn:Enable(false)
+        self.hide_lrn_skill_btn:Enable(false)
+        self.sort_list:Enable(false)
+        self.edit_mode_btn:Enable(false)
+        self.category_left_btn:Enable(false)
+        self.category_right_btn:Enable(false)
+        self.category_cap:SetText(game.translate_string("ui_experience_skills_wnd_skill_category_no_loaded_skills"))
+    end
+end
+
+function UIExperienceSkills:InitCallBacks()
+    self:AddCallback("learn_mouse_btn", ui_events.BUTTON_DOWN, self.LearnButtonPressed, self)
+    self:AddCallback("learn_mouse_btn", ui_events.BUTTON_CLICKED, self.LearnButtonReleased, self)
+
+    self:AddCallback("show_hidden_skills", ui_events.BUTTON_CLICKED, self.Callback_ShowHidden, self)
+    self:AddCallback("hide_selected_skill", ui_events.BUTTON_CLICKED, self.Callback_HideSelected, self)
+    self:AddCallback("level_prev_btn", ui_events.BUTTON_CLICKED, self.ViewPrevLevelDescription, self)
+    self:AddCallback("level_next_btn", ui_events.BUTTON_CLICKED, self.ViewNextLevelDescription, self)
+    self:AddCallback("hide_learned_skills",         ui_events.BUTTON_CLICKED,           self.Callback_OnHideLearnedSkills,          self)
+    self:AddCallback("switch_edit_mode",            ui_events.BUTTON_CLICKED,           self.Callback_OnSwitchEditMode,             self)
+    self:AddCallback("save_editor",                 ui_events.BUTTON_CLICKED,           self.Callback_OnSaveEditMode,               self)
+    self:AddCallback("reset_editor",                ui_events.BUTTON_CLICKED,           self.Callback_OnResetEditMode,              self)
+    self:AddCallback("button_lvl_requirements",     ui_events.BUTTON_CLICKED,           self.Callback_ShowLevelRequiremts,          self)
+    self:AddCallback("category_left_btn",           ui_events.BUTTON_CLICKED,           self.Callback_OnCategoryPrev,               self)
+    self:AddCallback("category_right_btn",          ui_events.BUTTON_CLICKED,           self.Callback_OnCategoryNext,               self)
+    self.sort_list:SetCallback(self.Callback_OnSortList, self)
+end
+
+function UIExperienceSkills:Reset()
+    self:UnselectSkill()
+    self:FillList()
+end
+
+function UIExperienceSkills:FillList()
+    local show_all          = experience_options.Get("UI/SHOW_ALL_SKILLS")
+    local show_hidden       = self.show_hidden_btn:GetCheck()
+    local hide_learned      = self.hide_lrn_skill_btn:GetCheck()
+    local actor_level       = experience_utils.GetActorLevel()
+    local actor_prestige    = experience_utils.GetActorPrestige()
+    local scroll_pos        = self.skills_scrollbar:GetCurrentScrollPos()
+    local category_skills   = self.category_curr_idx > 0 and self.categories[self.category_curr_idx].content or false
+    self.skills_scrollbar:Clear()
+
+    for id in spairs(self.skills, skills_sort_methods[self.sort_list:GetCurrentID()]) do
+        self.skills[id].wnd:Show(false)
+
+        local skill_data = experience_core.GetSkillData(id)
+        local user_hidden = experience_utils.ReadConfig("ui_hidden_skills", id, 1, false)
+        if skill_data.enable and (not category_skills or category_skills[id]) and (show_hidden or not user_hidden) then
+            local can_show = false
+
+            local precond           = experience_core.GetSkillOption(id, "precondition")
+            local curr_level        = skill_data.curr_level
+            local max_level         = experience_core.GetSkillOption(id, "max_level")
+
+            local skill_is_learned  = curr_level > 0
+            local skill_is_max      = curr_level >= max_level
+            local actor_is_worthy, skill_is_hidden = false, false
+
+            if skill_is_max then
+                actor_is_worthy     = true
+            elseif precond then
+                actor_is_worthy     = not precond(curr_level + 1)
+            else
+                local req_level     = experience_utils.NormalizeReqLevel(id, curr_level)
+                local req_prestige  = experience_utils.NormalizeReqPrestige(id)
+                actor_is_worthy     = (actor_prestige >= req_prestige and actor_level >= req_level)
+            end
+
+            if (not actor_is_worthy and not skill_is_learned and experience_utils.IsHiddenSkill(id)) then
+                skill_is_hidden     = true
+            end
+
+            if show_all or actor_is_worthy or skill_is_learned or (show_hidden and user_hidden) then
+                can_show = true
+
+                if (skill_is_hidden and not (show_hidden and user_hidden))
+                or hide_learned and not (show_hidden and user_hidden) and ((not actor_is_worthy and skill_is_learned) or skill_is_max)
+                then
+                    can_show = false
+                end
+            end
+
+            if can_show then
+                self.skills[id].wnd:Show(true)
+                self:AdjustSkillName(id)
+                self.skills_scrollbar:AddWindow(self.skills[id].wnd, true)
+                self.skills[id].wnd:SetAutoDelete(false)
+            end
+        end
+    end
+
+    self.skills_scrollbar:SetScrollPos(scroll_pos)
+end
+
+function UIExperienceSkills:AdjustSkillName(id)
+    local name              = game.translate_string(experience_core.GetSkillOption(id, "name"))
+    local curr_level        = experience_core.GetSkillData(id).curr_level
+    local max_level         = experience_core.GetSkillOption(id, "max_level")
+    local precond           = experience_core.GetSkillOption(id, "precondition")
+
+    local req_prestige, req_level = 0, 0
+    if not precond then
+        req_prestige        = experience_utils.NormalizeReqPrestige(id)
+        req_level           = experience_utils.NormalizeReqLevel(id, curr_level)
+    end
+
+    local actor_level       = experience_utils.GetActorLevel()
+    local actor_prestige    = experience_utils.GetActorPrestige()
+    local actor_skillpoints = experience_utils.GetActorSkillpoints()
+
+    -- Set Text
+    local text,clr
+    if curr_level == 0 then
+        text = name
+    elseif curr_level >= max_level then
+        text = name .. " " .. game.translate_string("ui_experience_skills_wnd_skill_name_lvlmax")
+    else
+        text = name .. " " .. strformat(game.translate_string("ui_experience_skills_wnd_skill_name_lvl"), curr_level)
+    end
+    self.skills[id].name:SetText(text)
+
+    -- Set Text Color
+    if experience_utils.IsUniqueSkill(id) then
+        clr = self.clr.purple
+    elseif curr_level >= max_level then
+        clr = self.clr.cyan
+    elseif precond then
+        if not precond(curr_level + 1) then
+            if actor_skillpoints == 0 then
+                clr = self.clr.orange
+            else
+                clr = self.clr.green
+            end
+        else
+            if curr_level == 0 then
+                clr = self.clr.red
+            else
+                clr = self.clr.orange
+            end
+        end
+    elseif actor_prestige < req_prestige then
+        clr = self.clr.black
+    elseif actor_level < req_level then
+        if curr_level == 0 then
+            clr = self.clr.red
+        else
+            clr = self.clr.orange
+        end
+    elseif actor_skillpoints == 0 then
+        clr = self.clr.orange
+    else
+        clr = self.clr.green
+    end
+    self.skills[id].name:SetTextColor(clr)
+end
+
+function UIExperienceSkills:Callback_Skill(id)
+	if self.skills[id].btn:GetCheck() == false then
+        self:UnselectSkill(true)
+		return
+	end
+    self:SelectSkill(id, true)
+end
+
+function UIExperienceSkills:Callback_OnHideLearnedSkills()
+    experience_utils.WriteConfig("ui_skills", "hide_learned_skills", self.hide_lrn_skill_btn:GetCheck())
+    self:FillList()
+    self:PlaySND("menu_click_2")
+end
+
+function UIExperienceSkills:Callback_OnSwitchEditMode()
+    self.edit_mode = self.edit_mode_btn:GetCheck()
+    local id = self.curr_skill.id
+    if id ~= nil then
+        self:ReselectSkill(id)
+    end
+    self:PlaySND("menu_click_2")
+end
+
+function UIExperienceSkills:Callback_OnSortList()
+    experience_utils.WriteConfig("ui_skills", "skills_sort_method", self.sort_list:GetCurrentID())
+    self:FillList()
+    self:PlaySND("menu_click_2")
+end
+
+function UIExperienceSkills:Callback_OnCategoryPrev()
+    if self.category_curr_idx == 0 then
+        self.category_curr_idx = #self.categories
+    else
+        self.category_curr_idx = self.category_curr_idx - 1
+    end
+
+    local txt
+    if self.category_curr_idx == 0 then
+        txt = game.translate_string("ui_experience_skills_wnd_skill_category_all")
+    else
+        txt = self.categories[self.category_curr_idx].text
+    end
+    self.category_cap:SetText(txt)
+    self:FillList()
+    self:PlaySND("menu_click_2")
+end
+
+function UIExperienceSkills:Callback_OnCategoryNext()
+    if self.category_curr_idx == #self.categories then
+        self.category_curr_idx = 0
+    else
+        self.category_curr_idx = self.category_curr_idx + 1
+    end
+
+    local txt
+    if self.category_curr_idx == 0 then
+        txt = game.translate_string("ui_experience_skills_wnd_skill_category_all")
+    else
+        txt = self.categories[self.category_curr_idx].text
+    end
+    self.category_cap:SetText(txt)
+    self:FillList()
+    self:PlaySND("menu_click_2")
+end
+
+function UIExperienceSkills:ReselectSkill(id)
+    self:SelectSkill(id)
+    self.skills[id].btn:SetCheck(true)
+end
+
+function UIExperienceSkills:SelectSkill(id, play_sound)
+    self:UnselectSkill()
+
+    if (self:IsEditMode() and experience_utils.SkillWithPrecondition(id)) then
+        self.edit_mode = false
+        self.edit_mode_btn:SetCheck(false)
+    end
+
+    self.curr_skill.id              = id
+    self.description_scrollbar:Show(true)
+
+    if self:IsEditMode() then
+        self:BuildSkillEditor()
+    else
+        self.curr_skill.curr_level      = experience_core.GetSkillData(id).curr_level
+        self.curr_skill.max_level       = experience_core.GetSkillOption(id, "max_level")
+        self.curr_skill.precondition    = experience_core.GetSkillOption(id, "precondition")
+        self.curr_skill.description     = experience_core.GetSkillOption(id, "description")
+
+        if not self.curr_skill.precondition then
+            self.curr_skill.req_prestige = experience_utils.NormalizeReqPrestige(id)
+        end
+
+        if self.curr_skill.curr_level == 0 then
+            self.view_level = 1
+        else
+            self.view_level = self.curr_skill.curr_level
+        end
+    
+        self:BuildDescriptionIcon()
+        self:BuildDescriptionName()
+        self:BuildDescriptionText()
+        self:ShowSkillControls(true)
+        self:CheckLearningPossibility()
+    end
+
+    if play_sound then
+        self:PlaySND("menu_click_4")
+    end
+end
+
+function UIExperienceSkills:UnselectSkill(play_sound)
+    self:LearnButtonReleased()
+    self.learn_btn:Show(false)
+    if self.curr_skill.id == nil then
+        return
+    end
+
+    self:StopSND("learn_skill_hold")
+    self.skills[self.curr_skill.id].btn:SetCheck(false)
+    self:ShowSkillControls(false)
+    self.description_scrollbar:Clear()
+    self.description_scrollbar:Show(false)
+    self.description_text = nil
+    self.view_level = 0
+    self.learn_button_pressed = false
+    self.can_learn_skill = false
+    self.learn_hold_tg = 0
+    self.learn_hold_tmr = 0
+    self.editor_btn_save_b:Show(false)
+    self.editor_btn_reset_b:Show(false)
+    for key in pairs(self.editors) do
+        empty_table(self.editors[key])
+    end
+    empty_table(self.curr_skill)
+
+    if play_sound then
+        self:PlaySND("menu_click_4")
+    end
+end
+
+function UIExperienceSkills:BuildDescriptionIcon()
+    local icon_name = experience_core.GetSkillOption(self.curr_skill.id, "icon")
+    if icon_name == "" then
+        return
+    end
+
+    local _st = self.xml:InitStatic("skills_wnd:description_st", nil)
+    local icon = self.xml:InitStatic("skills_wnd:description_icon", _st)
+
+    icon:InitTexture(icon_name)
+    icon:SetWndSize(vector2():set(icon:GetWidth() * self.ratio, icon:GetHeight()))
+    icon:SetWndPos(vector2():set( (_st:GetWidth() / 2) - (icon:GetWidth() / 2) , icon:GetWndPos().y ))
+    _st:SetWndSize(vector2():set(_st:GetWidth(), icon:GetWndPos().y + icon:GetHeight()))
+
+    self.description_scrollbar:AddWindow(_st, true)
+    _st:SetAutoDelete(false)
+end
+
+function UIExperienceSkills:BuildDescriptionName()
+    local id = self.curr_skill.id
+    local text = game.translate_string(experience_core.GetSkillOption(id, "name"))
+    local _st = self.xml:InitStatic("skills_wnd:description_st", nil)
+    local name = self.xml:InitTextWnd("skills_wnd:description_name", _st)
+
+    if experience_utils.IsUniqueSkill(id) then
+        text = text .. "\\n" .. game.translate_string("ui_experience_skills_wnd_skill_name_unique")
+    end
+
+    name:SetText(text)
+    name:SetTextColor(self.skills[id].name:GetTextColor())
+    name:AdjustHeightToText()
+    if experience_core.GetSkillOption(id, "icon") == "" then
+        local pos = name:GetWndPos()
+        name:SetWndPos(vector2():set(pos.x, pos.y / 2))
+    end
+    _st:SetWndSize(vector2():set(_st:GetWidth(), name:GetWndPos().y + name:GetHeight()))
+
+    self.description_scrollbar:AddWindow(_st, true)
+    _st:SetAutoDelete(false)
+end
+
+function UIExperienceSkills:BuildDescriptionText()
+    if self.description_text ~= nil then
+        self.description_scrollbar:RemoveWindow(self.description_text)
+    end
+
+    self.description_text = self.xml:InitStatic("skills_wnd:description_st", nil)
+    local descr = self.xml:InitTextWnd("skills_wnd:description_text", self.description_text)
+
+    local text = game.translate_string(self.curr_skill.description .. "_" .. self.view_level)
+
+    local stats = experience_core.GetSkillOption(self.curr_skill.id, "stats")
+    if (stats and stats[self.view_level]) then
+		local t = {}
+		for key, val in pairs(stats[self.view_level]) do
+			local value = exec_stat(unpack(val))
+			if value ~= nil then
+				t[key] = value
+			else
+                experience_dbg.Write(1, "[%s] Skill | Warning: nil description stat! | Key: %s, Skill level: %s", self.curr_skill.id, key, self.view_level)
+			end
+		end
+		if is_not_empty(t) then
+			text = utils_data.parse_string_keys(text, t)
+		end
+    end
+
+    descr:SetText(text)
+    descr:AdjustHeightToText()
+    self.description_text:SetWndSize(vector2():set(self.description_text:GetWidth(), descr:GetWndPos().y + descr:GetHeight() + 10))
+
+    self.description_scrollbar:AddWindow(self.description_text, true)
+    self.description_text:SetAutoDelete(false)
+end
+
+function UIExperienceSkills:ShowSkillControls(state)
+    if state == true then
+        self.skill_controls.wnd:Show(true)
+        self:UpdateSkillControls()
+    else
+        self.skill_controls.wnd:Show(false)
+    end
+end
+
+function UIExperienceSkills:UpdateSkillControls()
+    self.hide_skill_btn:SetCheck(experience_utils.ReadConfig("ui_hidden_skills", self.curr_skill.id, 1, false))
+    self.skill_controls.prev:Show(true)
+    self.skill_controls.next:Show(true)
+    if self.view_level == 1 then
+        self.skill_controls.prev:Show(false)
+    end
+    if self.view_level == self.curr_skill.max_level then
+        self.skill_controls.next:Show(false)
+    end
+
+    local curr_level = self.curr_skill.curr_level
+    if self.view_level == curr_level then
+        self.skill_controls.lvl_tip:SetText(game.translate_string("ui_experience_skills_wnd_selected_curr_lvl"))
+    elseif self.view_level < curr_level then
+        self.skill_controls.lvl_tip:SetText(game.translate_string("ui_experience_skills_wnd_selected_prev_lvl"))
+    else
+        if self.curr_skill.precondition then
+            self.skill_controls.lvl_tip:SetText(game.translate_string("ui_experience_skills_wnd_selected_requirements_lvl"))
+        else
+            self.skill_controls.lvl_tip:SetText(strformat(game.translate_string("ui_experience_skills_wnd_selected_next_lvl"), experience_utils.NormalizeReqLevel(self.curr_skill.id, self.view_level, true)))
+        end
+    end
+
+    self.skill_controls.lvl_txt:SetText(strformat(game.translate_string("ui_experience_skills_wnd_selected_lvl"), self.view_level))
+end
+
+function UIExperienceSkills:SkillControlsIsShown()
+    return self.skill_controls.wnd:IsShown()
+end
+
+function UIExperienceSkills:ViewPrevLevelDescription()
+    if not self:SkillControlsIsShown() then
+        return
+    end
+
+    if self.view_level > 1 then
+        self.view_level = self.view_level - 1
+        self:BuildDescriptionText()
+        self:UpdateSkillControls()
+        self:PlaySND("scroll_skill_level")
+    end
+end
+
+function UIExperienceSkills:ViewNextLevelDescription()
+    if not self:SkillControlsIsShown() then
+        return
+    end
+
+    if self.view_level < self.curr_skill.max_level then
+        self.view_level = self.view_level + 1
+        self:BuildDescriptionText()
+        self:UpdateSkillControls()
+        self:PlaySND("scroll_skill_level")
+    end
+end
+
+function UIExperienceSkills:CheckLearningPossibility()
+    local max_level         = self.curr_skill.max_level
+    local curr_level        = self.curr_skill.curr_level
+    local actor_skillpoints = experience_utils.GetActorSkillpoints()
+
+    self.skill_controls.state:Show(true)
+    self.skill_controls.lvl_tip_btn_b:Show(false)
+
+    if self.curr_skill.precondition then
+        if curr_level >= max_level then
+            self.skill_controls.state:SetText(game.translate_string("ui_experience_skills_wnd_skill_tip_max_level"))
+            self.skill_controls.state:SetTextColor(self.clr.cyan)
+            return
+        end
+
+        if actor_skillpoints == 0 then
+            self.skill_controls.state:SetText(game.translate_string("ui_experience_skills_wnd_skill_tip_not_have_skillpoints"))
+            self.skill_controls.state:SetTextColor(self.clr.red)
+            return
+        end
+
+        self.curr_skill.precondition_result = self.curr_skill.precondition(curr_level + 1)
+        if not self.curr_skill.precondition_result then
+            self.skill_controls.state:SetText(game.translate_string("ui_experience_skills_wnd_skill_tip_can_learn"))
+            self.skill_controls.state:SetTextColor(self.clr.green)
+            self:LearnButtonReleased()
+            self.can_learn_skill = true
+        else
+            self.skill_controls.lvl_tip_btn_b:Show(true)
+            self.skill_controls.state:Show(false)
+        end
+        return
+    end
+
+    local req_prestige      = self.curr_skill.req_prestige
+    local req_level         = experience_utils.NormalizeReqLevel(self.curr_skill.id, curr_level)
+    local actor_level       = experience_utils.GetActorLevel()
+    local actor_prestige    = experience_utils.GetActorPrestige()
+
+    if curr_level >= max_level then
+        self.skill_controls.state:SetText(game.translate_string("ui_experience_skills_wnd_skill_tip_max_level"))
+        self.skill_controls.state:SetTextColor(self.clr.cyan)
+    elseif actor_prestige < req_prestige then
+        self.skill_controls.state:SetText(strformat(game.translate_string("ui_experience_skills_wnd_skill_tip_neded_prestige_level"), req_prestige))
+        self.skill_controls.state:SetTextColor(self.clr.red)
+    elseif actor_level < req_level then
+        self.skill_controls.state:SetText(strformat(game.translate_string("ui_experience_skills_wnd_skill_tip_neded_actor_level"), req_level))
+        self.skill_controls.state:SetTextColor(self.clr.red)
+    elseif actor_skillpoints == 0 then
+        self.skill_controls.state:SetText(game.translate_string("ui_experience_skills_wnd_skill_tip_not_have_skillpoints"))
+        self.skill_controls.state:SetTextColor(self.clr.red)
+    else
+        self.skill_controls.state:SetText(game.translate_string("ui_experience_skills_wnd_skill_tip_can_learn"))
+        self.skill_controls.state:SetTextColor(self.clr.green)
+        self:LearnButtonReleased()
+        self.can_learn_skill = true
+    end
+end
+
+function UIExperienceSkills:OnLearn()
+    local id = self.curr_skill.id
+    self.can_learn_skill = false
+
+    experience_utils.IncreaseSkillLevel(id, true)
+    self:UpdateActorStats()
+    self:ReselectSkill(id)
+    self:FillList()
+
+    self:StopSND("learn_skill_hold")
+    self:PlaySND("on_learn_skill")
+    self:PlayPPFX("cyan", 180)
+end
+
+-- Revalidate the actual next rank at press and commit time.
+function UIExperienceSkills:CanLearnNow()
+    if not self.can_learn_skill or not self.curr_skill.id or self:IsEditMode()
+        or not self:SkillControlsIsShown() then return false end
+    local data = experience_core.GetSkillData(self.curr_skill.id)
+    if not data or not data.enable or data.curr_level ~= self.curr_skill.curr_level
+        or data.curr_level >= self.curr_skill.max_level
+        or experience_utils.GetActorSkillpoints() < 1 then return false end
+    if self.curr_skill.precondition then
+        return not self.curr_skill.precondition(data.curr_level + 1)
+    end
+    return experience_utils.GetActorPrestige() >= self.curr_skill.req_prestige
+        and experience_utils.GetActorLevel() >= experience_utils.NormalizeReqLevel(self.curr_skill.id, data.curr_level)
+end
+
+function UIExperienceSkills:UpdateLearnButton()
+    local available = self.can_learn_skill and self.curr_skill.id and not self:IsEditMode()
+        and self:SkillControlsIsShown()
+    self.learn_btn:Show(available and true or false)
+    if available then
+        self.skill_controls.state:Show(false)
+        self.learn_btn:TextControl():SetText(strformat(game.translate_string("arpg_learn_hold"), self.curr_skill.curr_level + 1))
+    elseif self.learn_button_pressed then
+        self:LearnButtonReleased()
+    end
+end
+
+-- Clockwise border: top -> right -> bottom -> left, from the top-left corner.
+function UIExperienceSkills:SetLearnProgress(progress)
+    if not self.learn_edges then return end
+    local w, h, thickness = self.learn_btn:GetWidth(), self.learn_btn:GetHeight(), 2
+    local remaining = math.max(0, math.min(1, progress)) * (2 * (w + h))
+    local lengths = {w, h, w, h}
+    for i = 1, 4 do
+        local length = math.max(0, math.min(lengths[i], remaining))
+        remaining = remaining - lengths[i]
+        local x, y, width, height = 0, 0, length, thickness
+        if i == 2 then x, y, width, height = w - thickness, 0, thickness, length
+        elseif i == 3 then x, y, width, height = w - length, h - thickness, length, thickness
+        elseif i == 4 then x, y, width, height = 0, h - length, thickness, length end
+        local edge = self.learn_edges[i]
+        edge:Show(length > 0)
+        if length > 0 then
+            edge:SetWndPos(vector2():set(x, y))
+            edge:SetWndSize(vector2():set(width, height))
+        end
+    end
+end
+
+function UIExperienceSkills:LearnButtonPressed()
+    if self.learn_button_pressed or not self:CanLearnNow() then return end
+    self.learn_button_pressed = true
+    self.learn_mouse_skill = self.curr_skill.id
+    self.learn_mouse_rank = self.curr_skill.curr_level
+    self.learn_hold_started = experience_utils.GetTime()
+    self.learn_hold_duration = math.max(0.1, tonumber(experience_options.Get("UI/SKILL_LEARN_DELAY")) or 0.5) * 1000
+    self:SetLearnProgress(0)
+    self:PlaySND("learn_skill_hold")
+end
+
+function UIExperienceSkills:LearnButtonReleased()
+    self.learn_button_pressed = false
+    self.learn_hold_started = nil
+    self.learn_mouse_skill = nil
+    self.learn_mouse_rank = nil
+    self:SetLearnProgress(0)
+    self:StopSND("learn_skill_hold")
+end
+
+function UIExperienceSkills:CanStartLearning()
+    return self.learn_button_pressed and self:CanLearnNow()
+end
+
+function UIExperienceSkills:HoldLearning(time_g)
+    if not self.learn_button_pressed then return end
+    if not self:CanLearnNow() or not self.learn_btn:IsCursorOverWindow()
+        or self.curr_skill.id ~= self.learn_mouse_skill or self.curr_skill.curr_level ~= self.learn_mouse_rank
+        or (self.owner.message_box and self.owner.message_box:IsShown()) then
+        self:LearnButtonReleased()
+        return
+    end
+    local elapsed = time_g - self.learn_hold_started
+    if elapsed < 0 then self:LearnButtonReleased();return end
+    local progress = math.min(1, elapsed / self.learn_hold_duration)
+    self:SetLearnProgress(progress)
+    if progress >= 1 then
+        self:LearnButtonReleased()
+        self:OnLearn()
+    end
+end
+
+function UIExperienceSkills:Callback_ShowLevelRequiremts()
+    local message_box = self.owner.message_box
+    message_box:InitMessageBox("ok")
+    message_box:AddCapText(game.translate_string("ui_experience_skills_wnd_selected_requirements"))
+    message_box:AddText(self.curr_skill.precondition_result)
+    message_box:ShowMessage()
+    self:PlaySND("ui_generic_1")
+end
+
+----------------------------------------------------
+-- Editor Mode
+----------------------------------------------------
+function UIExperienceSkills:IsEditMode()
+    return self.edit_mode
+end
+
+function UIExperienceSkills:Callback_OnSaveEditMode()
+    local id = self.curr_skill.id
+    local ini_props = experience_core.get_ini_skill_props()
+    for key, v in pairs(self.editors) do
+        ini_props:w_value(id, key, v.value)
+    end
+    ini_props:save()
+    experience_core.update_skill_props(id)
+    self:ReselectSkill(id)
+    self:FillList()
+    self:PlaySND("on_accept_1")
+end
+
+function UIExperienceSkills:Callback_OnResetEditMode()
+    local id = self.curr_skill.id
+    experience_core.reset_skill_props(id)
+    self:ReselectSkill(id)
+    self:FillList()
+    self:PlaySND("on_accept_1")
+end
+
+function UIExperienceSkills:Callback_EditMode(key)
+    self.editors[key].txt:SetText(self.editors[key].value)
+    if self.editors[key].value ~= self.editors[key].def_value then
+        self.editors[key].name:SetTextColor(self.clr.orange)
+        self.editors[key].txt:SetTextColor(self.clr.orange)
+    else
+        self.editors[key].name:SetTextColor(self.clr.cyan)
+        self.editors[key].txt:SetTextColor(self.clr.cyan)
+    end
+    self:CheckEditModeSavePossibility()
+end
+
+function UIExperienceSkills:UpdateEditorValues()
+    if not (self:IsEditMode() and self.curr_skill.id ~= nil) then
+        return
+    end
+
+    for key, v in pairs(self.editors) do
+        if v.ctrl:IsCursorOverWindow() then
+            local val = v.ctrl:GetFValue()
+            if val ~= v.value then
+                v.value = val
+                self:Callback_EditMode(key)
+                return
+            end
+        end
+    end
+end
+
+function UIExperienceSkills:BuildSkillEditor()
+    local can_reset = false
+    local props = experience_core.get_skill_props(self.curr_skill.id)
+    local track_settings = {
+        ["req_level"]		= {min = 1, max = 300, step = 1},
+        ["each_level"]		= {min = 0, max = 300, step = 1},
+        ["req_prestige"]	= {min = 0, max = 10, step = 1}
+    }
+
+    local xml = self.xml
+
+    for key in pairs(self.editors) do
+        local value = props[key]
+        if value ~= props[key .. "_def"] then
+            can_reset = true
+        end
+
+        self.editors[key].def_value = value
+        self.editors[key].value = value
+
+        local _st = xml:InitStatic("skills_wnd:description_st", nil)
+    
+        self.editors[key].frame = xml:InitFrame("skills_wnd:editor_mode:track_frame", _st)
+
+        self.editors[key].name = xml:InitTextWnd("skills_wnd:editor_mode:track_name", self.editors[key].frame)
+        self.editors[key].name:SetText(game.translate_string("ui_experience_skills_wnd_edit_mode_" .. key .. "_name"))
+        self.editors[key].name:SetTextColor(self.clr.cyan)
+
+        self.editors[key].ctrl = xml:InitTrackBar("skills_wnd:editor_mode:track", self.editors[key].frame)
+        self.editors[key].ctrl:SetInvert(false)
+        self.editors[key].ctrl:SetStep(track_settings[key].step)
+        self.editors[key].ctrl:SetOptFBounds(track_settings[key].min, (value > track_settings[key].max and value or track_settings[key].max))
+        self.editors[key].ctrl:SetFValue(value)
+
+        self.editors[key].txt = xml:InitTextWnd("skills_wnd:editor_mode:track_value", self.editors[key].frame)
+        self.editors[key].txt:SetText(value)
+        self.editors[key].txt:SetTextColor(self.clr.cyan)
+
+        _st:SetWndSize(vector2():set( _st:GetWidth() , self.editors[key].frame:GetHeight() ))
+        self.description_scrollbar:AddWindow(_st, true)
+        _st:SetAutoDelete(false)
+    end
+
+    if can_reset then
+        self.editor_btn_reset_b:Show(true)
+    end
+end
+
+function UIExperienceSkills:CheckEditModeSavePossibility()
+    for _,v in pairs(self.editors) do
+        if v.value ~= v.def_value then
+            self.editor_btn_save_b:Show(true)
+            return
+        end
+    end
+    self.editor_btn_save_b:Show(false)
+end
+----------------------------------------------------
+
+-- Called from experience_ui.UIExperienceMenu.Update
+function UIExperienceSkills:Update()
+    local time_g = experience_utils.GetTime()
+
+    self:UpdateEditorValues()
+    self:UpdateLearnButton()
+    self:HoldLearning(time_g)
+end
+
+-- Called from experience_ui.UIExperienceMenu.OnKeyboard
+function UIExperienceSkills:OnKeyboard(res, dik, keyboard_action)
+    if dik == DIK_keys.MOUSE_1 and keyboard_action == ui_events.WINDOW_KEY_RELEASED then
+        self:LearnButtonReleased()
+    end
+    if res == false then
+        if keyboard_action == ui_events.WINDOW_KEY_PRESSED then
+            if dik == DIK_keys.DIK_ESCAPE then
+                self:CloseWindow()
+            elseif dik == DIK_keys.DIK_A then
+                self:ViewPrevLevelDescription()
+            elseif dik == DIK_keys.DIK_D then
+                self:ViewNextLevelDescription()
+            end
+        end
+    end
+end
+
+function UIExperienceSkills:CloseWindow(dont_play_sound)
+    self.owner:CloseCurrentWindow(dont_play_sound)
+end
+
+-- Called from experience_ui.UIExperienceMenu.CloseCurrentWindow
+function UIExperienceSkills:Close()
+    self:LearnButtonReleased()
+    self:Show(false)
+end
+
+function UIExperienceSkills:Register(obj, id)
+    self.owner:Register(obj, "skills_wnd_" .. id)
+end
+
+function UIExperienceSkills:AddCallback(id, action, functor, obj)
+    self.owner:AddCallback("skills_wnd_" .. id, action, functor, obj)
+end
+
+function UIExperienceSkills:UpdateActorStats()
+    self.owner:UpdateActorStats()
+end
+
+function UIExperienceSkills:PlaySND(key)
+    self.owner:PlaySND(key)
+end
+
+function UIExperienceSkills:StopSND(key)
+    self.owner:StopSND(key)
+end
+
+function UIExperienceSkills:PlayPPFX(clr_id, start_alpha, clr_table, looped)
+    self.owner:PlayPPFX(clr_id, start_alpha, clr_table, looped)
+end
+function UIExperienceSkills:Callback_ShowHidden()
+    experience_utils.WriteConfig("ui_skills", "show_hidden_skills", self.show_hidden_btn:GetCheck())
+    self:FillList()
+    self:PlaySND("menu_click_2")
+end
+
+function UIExperienceSkills:Callback_HideSelected()
+    local id = self.curr_skill.id
+    if not id then return end
+    local hidden = self.hide_skill_btn:GetCheck()
+    experience_utils.WriteConfig("ui_hidden_skills", id, hidden)
+    if hidden and not self.show_hidden_btn:GetCheck() then self:UnselectSkill() end
+    self:FillList()
+    self:PlaySND("menu_click_2")
+end

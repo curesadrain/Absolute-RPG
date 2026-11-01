@@ -1,0 +1,38 @@
+-- RPG GAMMA Patch: storage of new perk levels (filled by experience_skill_on_update)
+-- lvl("perk_id") returns the current level; listen("perk_id", fn) calls fn(level) on every change (also on load).
+
+local LEVELS = {
+	["perk_museum_exhibit"] = 0,
+	["perk_marathoner"]     = 0,
+	["perk_hero"]           = 0,
+	["perk_inner_pockets"]  = 0,
+	["perk_neat_freak"]     = 0,
+	["perk_noosphere_link"] = 0,
+	["perk_quick_aim"]       = 0,
+}
+local listeners = {}
+
+function lvl(perk_id)
+	return LEVELS[perk_id] or 0
+end
+
+function listen(perk_id, fn)
+	listeners[perk_id] = listeners[perk_id] or {}
+	table.insert(listeners[perk_id], fn)
+end
+
+local function on_skill_update(perk_id, perk_data)
+	if LEVELS[perk_id] == nil then return end
+	LEVELS[perk_id] = perk_data and perk_data["curr_level"] or 0
+	for _, fn in ipairs(listeners[perk_id] or {}) do
+		fn(LEVELS[perk_id])
+	end
+end
+
+function on_game_start()
+	if experience_potions or experience_core then
+		RegisterScriptCallback("experience_skill_on_update", on_skill_update)
+	else
+		RegisterScriptCallback("experience_perk_on_update", on_skill_update)
+	end
+end

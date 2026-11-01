@@ -1,0 +1,215 @@
+<?xml version='1.0' encoding='windows-1251'?>
+<string_table>
+
+	<string id="st_perk_surgical_precision">
+        <text>Surgical Precision</text>
+    </string>
+	<string id="st_perk_surgical_precision_desc">
+        <text>Locate the bleeding first, then open the right medication. You retain the sequence of field treatment while gunfire continues nearby and there is no margin for error.\n \nMax Perk Level: 5</text>
+    </string>
+	<string id="st_perk_surgical_precision_desc_1">
+        <text>Locate the bleeding first, then open the right medication. You retain the sequence of field treatment while gunfire continues nearby and there is no margin for error.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]6% of its total HP healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]6% of its total radiation healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]6% of its total bleed healing %c[ui_gray_2]instantly as extra healing
+		</text>
+    </string>
+	<string id="st_perk_surgical_precision_desc_2">
+        <text>Locate the bleeding first, then open the right medication. You retain the sequence of field treatment while gunfire continues nearby and there is no margin for error.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]12% of its total HP healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]12% of its total radiation healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]12% of its total bleed healing %c[ui_gray_2]instantly as extra healing
+		</text>
+    </string>
+	<string id="st_perk_surgical_precision_desc_3">
+        <text>Locate the bleeding first, then open the right medication. You retain the sequence of field treatment while gunfire continues nearby and there is no margin for error.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]18% of its total HP healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]18% of its total radiation healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]18% of its total bleed healing %c[ui_gray_2]instantly as extra healing
+		</text>
+    </string>
+	<string id="st_perk_surgical_precision_desc_4">
+        <text>Locate the bleeding first, then open the right medication. You retain the sequence of field treatment while gunfire continues nearby and there is no margin for error.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]24% of its total HP healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]24% of its total radiation healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]24% of its total bleed healing %c[ui_gray_2]instantly as extra healing
+		</text>
+    </string>
+	<string id="st_perk_surgical_precision_desc_5">
+        <text>Locate the bleeding first, then open the right medication. You retain the sequence of field treatment while gunfire continues nearby and there is no margin for error.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]30% of its total HP healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]30% of its total radiation healing %c[ui_gray_2]instantly as extra healing \n
+		%c[d_blue] - %c[ui_gray_2] Medical items grant %c[d_green]30% of its total bleed healing %c[ui_gray_2]instantly as extra healing
+		</text>
+    </string>
+	
+	
+    <string id="st_perk_calm_mind">
+        <text>Calm Mind</text>
+    </string>
+	<string id="st_perk_calm_mind_desc">
+        <text>When whispers fill the headset, you hold to your breathing and a familiar sequence of actions. Beside a campfire, it becomes easier to separate your own thoughts from what the psy field brought home.\n \nMax Perk Level: 5</text>
+    </string>
+	<string id="st_perk_calm_mind_desc_1">
+        <text>When whispers fill the headset, you hold to your breathing and a familiar sequence of actions. Beside a campfire, it becomes easier to separate your own thoughts from what the psy field brought home.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Reduce psy damage by %c[d_green]5%\n
+		%c[d_blue] - %c[ui_gray_2] Regenerate psy health %c[d_green]20% faster\n
+		%c[d_blue] - %c[ui_gray_2] Regeneration is multiplied by %c[d_green]20% %c[ui_gray_2]when near a campfire
+		</text>
+    </string>
+	<string id="st_perk_calm_mind_desc_2">
+        <text>When whispers fill the headset, you hold to your breathing and a familiar sequence of actions. Beside a campfire, it becomes easier to separate your own thoughts from what the psy field brought home.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Reduce psy damage by %c[d_green]10%\n
+		%c[d_blue] - %c[ui_gray_2] Regenerate psy health %c[d_green]40% faster\n
+		%c[d_blue] - %c[ui_gray_2] Regeneration is multiplied by %c[d_green]40% %c[ui_gray_2]when near a campfire
+		</text>
+    </string>
+	<string id="st_perk_calm_mind_desc_3">
+        <text>When whispers fill the headset, you hold to your breathing and a familiar sequence of actions. Beside a campfire, it becomes easier to separate your own thoughts from what the psy field brought home.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Reduce psy damage by %c[d_green]15%\n
+		%c[d_blue] - %c[ui_gray_2] Regenerate psy health %c[d_green]60% faster\n
+		%c[d_blue] - %c[ui_gray_2] Regeneration is multiplied by %c[d_green]60% %c[ui_gray_2]when near a campfire
+		</text>
+    </string>
+	<string id="st_perk_calm_mind_desc_4">
+        <text>When whispers fill the headset, you hold to your breathing and a familiar sequence of actions. Beside a campfire, it becomes easier to separate your own thoughts from what the psy field brought home.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Reduce psy damage by %c[d_green]20%\n
+		%c[d_blue] - %c[ui_gray_2] Regenerate psy health %c[d_green]80% faster\n
+		%c[d_blue] - %c[ui_gray_2] Regeneration is multiplied by %c[d_green]80% %c[ui_gray_2]when near a campfire
+		</text>
+    </string>
+	<string id="st_perk_calm_mind_desc_5">
+        <text>When whispers fill the headset, you hold to your breathing and a familiar sequence of actions. Beside a campfire, it becomes easier to separate your own thoughts from what the psy field brought home.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Reduce psy damage by %c[d_green]25%\n
+		%c[d_blue] - %c[ui_gray_2] Regenerate psy health %c[d_green]100% faster\n
+		%c[d_blue] - %c[ui_gray_2] Regeneration is multiplied by %c[d_green]100% %c[ui_gray_2]when near a campfire
+		</text>
+    </string>
+	
+	
+    <string id="st_perk_repair_junkie">
+        <text>Repair Junkie</text>
+    </string>
+	<string id="st_perk_repair_junkie_desc">
+        <text>The repair kit is running low, and the base is still a long way off. You work to the condition of the part rather than wasting every consumable at the first opportunity.\n \nMax Perk Level: 5</text>
+    </string>
+	<string id="st_perk_repair_junkie_desc_1">
+        <text>The repair kit is running low, and the base is still a long way off. You work to the condition of the part rather than wasting every consumable at the first opportunity.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Repairing or cleaning has a %c[d_green]10% %c[ui_gray_2]chance to not consume the used repair item
+		</text>
+    </string>
+	<string id="st_perk_repair_junkie_desc_2">
+        <text>The repair kit is running low, and the base is still a long way off. You work to the condition of the part rather than wasting every consumable at the first opportunity.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Repairing or cleaning has a %c[d_green]20% %c[ui_gray_2]chance to not consume the used repair item
+		</text>
+    </string>
+	<string id="st_perk_repair_junkie_desc_3">
+        <text>The repair kit is running low, and the base is still a long way off. You work to the condition of the part rather than wasting every consumable at the first opportunity.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Repairing or cleaning has a %c[d_green]35% %c[ui_gray_2]chance to not consume the used repair item
+		</text>
+    </string>
+	<string id="st_perk_repair_junkie_desc_4">
+        <text>The repair kit is running low, and the base is still a long way off. You work to the condition of the part rather than wasting every consumable at the first opportunity.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Repairing or cleaning has a %c[d_green]50% %c[ui_gray_2]chance to not consume the used repair item
+		</text>
+    </string>
+	<string id="st_perk_repair_junkie_desc_5">
+        <text>The repair kit is running low, and the base is still a long way off. You work to the condition of the part rather than wasting every consumable at the first opportunity.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Repairing or cleaning has a %c[d_green]65% %c[ui_gray_2]chance to not consume the used repair item
+		</text>
+    </string>
+	
+	
+	<string id="st_perk_lockpick_mastery">
+        <text>Lockpick Mastery</text>
+    </string>
+	<string id="st_perk_lockpick_mastery_desc">
+        <text>A fine tool tolerates neither haste nor an unsteady hand. You work the lock quietly and methodically while a partner covers the approach, or before footsteps reach the corridor.\n \nMax Perk Level: 5\n \n \n%c[d_red]REQUIRES ANOMALY LOOTBOXES MOD IN ORDER TO HAVE ANY EFFECT!!!</text>
+    </string>
+	<string id="st_perk_lockpick_mastery_desc_1">
+        <text>A fine tool tolerates neither haste nor an unsteady hand. You work the lock quietly and methodically while a partner covers the approach, or before footsteps reach the corridor.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Locked containers have %c[d_green]10% %c[ui_gray_2]of their base difficulty reduced\n 
+		%c[d_red] - REQUIRES ANOMALY LOOTBOXES OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+    </string>
+	<string id="st_perk_lockpick_mastery_desc_2">
+        <text>A fine tool tolerates neither haste nor an unsteady hand. You work the lock quietly and methodically while a partner covers the approach, or before footsteps reach the corridor.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Locked containers have %c[d_green]20% %c[ui_gray_2]of their base difficulty reduced\n 
+		%c[d_red] - REQUIRES ANOMALY LOOTBOXES OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+    </string>
+	<string id="st_perk_lockpick_mastery_desc_3">
+        <text>A fine tool tolerates neither haste nor an unsteady hand. You work the lock quietly and methodically while a partner covers the approach, or before footsteps reach the corridor.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Locked containers have %c[d_green]30% %c[ui_gray_2]of their base difficulty reduced\n 
+		%c[d_red] - REQUIRES ANOMALY LOOTBOXES OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+    </string>
+	<string id="st_perk_lockpick_mastery_desc_4">
+        <text>A fine tool tolerates neither haste nor an unsteady hand. You work the lock quietly and methodically while a partner covers the approach, or before footsteps reach the corridor.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Locked containers have %c[d_green]50% %c[ui_gray_2]of their base difficulty reduced\n 
+		%c[d_red] - REQUIRES ANOMALY LOOTBOXES OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+    </string>
+	<string id="st_perk_lockpick_mastery_desc_5">
+        <text>A fine tool tolerates neither haste nor an unsteady hand. You work the lock quietly and methodically while a partner covers the approach, or before footsteps reach the corridor.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Locked containers have %c[d_green]80% %c[ui_gray_2]of their base difficulty reduced\n 
+		%c[d_red] - REQUIRES ANOMALY LOOTBOXES OR A MODIFACTION OF THE MOD IN ORDER TO HAVE ANY EFFECT
+		</text>
+    </string>
+	
+	
+	<string id="st_perk_silver_tongued">
+        <text>Silver-Tongued</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc">
+        <text>You approach the counter knowing the routes, shortages and risks on the other side. Negotiation begins before the first price and ends where both parties find common ground.</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_1">
+        <text>You approach the counter knowing the routes, shortages and risks on the other side. Negotiation begins before the first price and ends where both parties find common ground.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]5% %c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_2">
+        <text>You approach the counter knowing the routes, shortages and risks on the other side. Negotiation begins before the first price and ends where both parties find common ground.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]10% %c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_3">
+        <text>You approach the counter knowing the routes, shortages and risks on the other side. Negotiation begins before the first price and ends where both parties find common ground.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]15% %c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_4">
+        <text>You approach the counter knowing the routes, shortages and risks on the other side. Negotiation begins before the first price and ends where both parties find common ground.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]20% %c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	<string id="st_perk_silver_tongued_desc_5">
+        <text>You approach the counter knowing the routes, shortages and risks on the other side. Negotiation begins before the first price and ends where both parties find common ground.\n \n%c[ui_gray_3]EFFECTS:\n
+		%c[d_blue] - %c[ui_gray_2] Receive %c[d_green]25% c%c[ui_gray_2]better prices when buying or selling
+		</text>
+    </string>
+	
+	<string id="st_perk_mag_loader">
+        <text>Mag Loader</text>
+    </string>
+	<string id="st_perk_mag_loader_desc">
+        <text>You prepare your magazines before stepping out and check the feed without wasted motion. Even with numb fingers, the drill stays the same: round, check, next.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Five ranks improve loading and unloading speed. Ranks 4 and 5 add magazine slots to the equipped outfit.\n \nBonuses are totals for the selected rank. +100% speed means twice as fast, not instant. Speed multiplies the MCM setting. Magazine capacity is unchanged.\n \n%c[d_red]REQUIRES GAMMA Mags Reloaded Forked v1.05 by AndTheHeroIs &amp; Priler. Animations also require Animated Magazine Loading v0.9 Beta by SkyKi and the matching Absolute RPG installer option.</text>
+    </string>
+	<string id="st_perk_mag_loader_desc_1">
+        <text>You prepare your magazines before stepping out and check the feed without wasted motion. Even with numb fingers, the drill stays the same: round, check, next.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Magazine unloading speed +33%. Loading speed +0%.\n \nBonuses are totals for the selected rank. +100% speed means twice as fast, not instant. Speed multiplies the MCM setting. Magazine capacity is unchanged.\n \n%c[d_red]REQUIRES GAMMA Mags Reloaded Forked v1.05 by AndTheHeroIs &amp; Priler. Animations also require Animated Magazine Loading v0.9 Beta by SkyKi and the matching Absolute RPG installer option.</text>
+    </string>
+	<string id="st_perk_mag_loader_desc_2">
+        <text>You prepare your magazines before stepping out and check the feed without wasted motion. Even with numb fingers, the drill stays the same: round, check, next.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Magazine unloading speed +50%. Loading speed +20%.\n \nBonuses are totals for the selected rank. +100% speed means twice as fast, not instant. Speed multiplies the MCM setting. Magazine capacity is unchanged.\n \n%c[d_red]REQUIRES GAMMA Mags Reloaded Forked v1.05 by AndTheHeroIs &amp; Priler. Animations also require Animated Magazine Loading v0.9 Beta by SkyKi and the matching Absolute RPG installer option.</text>
+     </string>
+	<string id="st_perk_mag_loader_desc_3">
+        <text>You prepare your magazines before stepping out and check the feed without wasted motion. Even with numb fingers, the drill stays the same: round, check, next.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Magazine unloading speed +66%. Loading speed +44%.\n \nBonuses are totals for the selected rank. +100% speed means twice as fast, not instant. Speed multiplies the MCM setting. Magazine capacity is unchanged.\n \n%c[d_red]REQUIRES GAMMA Mags Reloaded Forked v1.05 by AndTheHeroIs &amp; Priler. Animations also require Animated Magazine Loading v0.9 Beta by SkyKi and the matching Absolute RPG installer option.</text>
+     </string>
+	<string id="st_perk_mag_loader_desc_4">
+        <text>You prepare your magazines before stepping out and check the feed without wasted motion. Even with numb fingers, the drill stays the same: round, check, next.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Magazine unloading speed +66%. Loading speed +66%. Any equipped outfit: +1 small and +1 medium magazine slot.\n \nBonuses are totals for the selected rank. +100% speed means twice as fast, not instant. Speed multiplies the MCM setting. Magazine capacity is unchanged.\n \n%c[d_red]REQUIRES GAMMA Mags Reloaded Forked v1.05 by AndTheHeroIs &amp; Priler. Animations also require Animated Magazine Loading v0.9 Beta by SkyKi and the matching Absolute RPG installer option.</text>
+     </string>
+	<string id="st_perk_mag_loader_desc_5">
+        <text>You prepare your magazines before stepping out and check the feed without wasted motion. Even with numb fingers, the drill stays the same: round, check, next.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Magazine unloading speed +100%. Loading speed +100%. Any equipped outfit: +1 small, +1 medium and +1 large magazine slot. Total rank bonus; does not stack with rank 4.\n \nBonuses are totals for the selected rank. +100% speed means twice as fast, not instant. Speed multiplies the MCM setting. Magazine capacity is unchanged.\n \n%c[d_red]REQUIRES GAMMA Mags Reloaded Forked v1.05 by AndTheHeroIs &amp; Priler. Animations also require Animated Magazine Loading v0.9 Beta by SkyKi and the matching Absolute RPG installer option.</text>
+     </string>
+	
+</string_table>

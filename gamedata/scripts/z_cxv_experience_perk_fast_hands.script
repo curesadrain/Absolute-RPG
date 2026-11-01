@@ -1,0 +1,100 @@
+local fast_hands_bonuses = {[0] = 0, [1] = 15, [2] = 30, [3] = 70, [4] = 70, [5] = 70} -- 4 & 5 are failsafes for older saves 
+
+local stow_anims = {
+	anm_hide = true,
+	anm_hide_fast = true,
+	anm_hide_0 = true,
+	anm_hide_1 = true,
+	anm_hide_2 = true,
+	anm_hide_empty = true,
+	anm_hide_jammed = true,
+	anm_hide_g = true,
+	anm_hide_w_gl = true,
+	anm_show = true,
+	anm_show_fast = true,
+	anm_show_0 = true,
+	anm_show_1 = true,
+	anm_show_2 = true,
+	anm_show_empty = true,
+	anm_show_jammed = true,
+	anm_show_g = true,
+	anm_show_w_gl = true,
+	anm_hide_quick = true,
+	anm_show_quick = true,
+	anm_zoom_hide_fast = true,
+	anm_zoom_show_fast = true,
+	
+	-- grenade throw
+	-- anm_throw_begin = true,
+	-- anm_throw = true,
+	
+	-- knife
+	-- anm_attack       = true,
+	-- anm_attack2      = true,
+	-- anm_attack2_e    = true,
+	-- anm_attack_e     = true,
+}
+
+local aim_anims = {
+	anm_idle2aim = true,
+}
+
+function fast_hands_speed(anim_table, obj)
+	
+	local anm_name = anim_table.anm_name
+	local isFirearm = IsWeapon(obj) and (not IsMelee(obj))
+	
+	if (x_cxv_perks_data.perks["perk_fast_hands"] < 1) then return end
+	
+	-- printf("Anim name: %s", anm_name)
+	if anm_name:find("_sprint") or anm_name:find("_moving") then return end
+	
+	if (not stow_anims[anm_name]) then
+		if anm_name:startswith("anm_show") or anm_name:startswith("anm_hide") or anm_name:startswith("anm_zoom_hide_fast") or anm_name:startswith("anm_zoom_show_fast") then
+			stow_anims[anm_name] = true
+		end
+	end
+	
+	if (not aim_anims[anm_name] and isFirearm) then
+		if isFirearm and (zz_handling_as_ergonomics and zz_handling_as_ergonomics.update_ergonomics) then
+			if anm_name:startswith("anm_idle_aim") then
+				aim_anims[anm_name] = true
+			end
+		end
+	end
+	
+	if stow_anims[anm_name] or (aim_anims[anm_name] and isFirearm) then
+	
+		local animation_speed = anim_table.anm_speed
+		
+		local swap_string = tostring(anm_name)
+		local item_sec = obj:section()
+		local hud_sec = ini_sys:r_string_ex(item_sec,"hud")
+		
+		local swap_val = parse_list(ini_sys,hud_sec,swap_string)
+	
+		for k, v in pairs(swap_val) do
+			if tonumber(v) then
+				animation_speed = tonumber(v)
+				break
+			end
+		end
+		
+		local swap_bonus = 1 + (fast_hands_bonuses[x_cxv_perks_data.perks["perk_fast_hands"]] * 0.01)
+		-- printf("[RPG] Swap Bonus: %s", swap_bonus)
+		anim_table.anm_speed = animation_speed * swap_bonus
+	end
+	
+end
+
+if animation_common and animation_common.add_anim_mutator then
+
+	animation_common.add_anim_mutator(fast_hands_speed, 0.00001)
+
+else
+
+	function on_game_start()
+		RegisterScriptCallback("actor_on_hud_animation_play", fast_hands_speed)
+	end
+
+end

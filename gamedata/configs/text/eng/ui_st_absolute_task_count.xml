@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='windows-1251'?>
+<string_table><string id="ui_exp_Tasks_COUNT_BY_PRESTIGE"><text>Task count scales with prestige</text></string><string id="ui_exp_Tasks_FIXED_TASK_COUNT"><text>Fixed task count</text></string><string id="arpg_fixed_task_count_desc"><text>With prestige scaling disabled, the slider sets the task count. With scaling enabled: prestige + 2, from 2 to 12 tasks. Changes apply on the next refresh; the force-refresh button can apply them sooner. Task difficulty still scales with prestige.</text></string></string_table>

@@ -1,0 +1,481 @@
+---------------------------------------------------------------------------------------
+-- Experience Framework Utilities
+-- Here are all the main functions that allow you to interact with the framework
+---------------------------------------------------------------------------------------
+
+
+function GetActorLevel()
+    return experience_core.XP.level or 0
+end
+
+function GetActorPrestige()
+    return experience_core.XP.prestige or 0
+end
+
+function GetActorSkillpoints()
+    return experience_core.XP.skillpoints or 0
+end
+
+function GetActorExperience()
+    return experience_core.XP.experience or 0
+end
+
+function GetActorExperienceCap()
+    return experience_core.XP.experience_cap or 0
+end
+
+function GetActorMaxLevel()
+    return math.min(300, experience_options.Get("Main/G_MAX_LEVEL") + experience_options.Get("Main/G_ADD_LEVEL_PER_PRESTIGE") * GetActorPrestige())
+end
+
+function GetActorMaxLevelBySkill(id)
+    local actor_prestige = GetActorPrestige()
+    local req_prestige = NormalizeReqPrestige(id)
+
+    if actor_prestige < req_prestige then
+        return math.min(300, experience_options.Get("Main/G_MAX_LEVEL") + experience_options.Get("Main/G_ADD_LEVEL_PER_PRESTIGE") * (req_prestige - actor_prestige))
+    else
+        return GetActorMaxLevel()
+    end
+end
+
+function ActorHasMaxLevel()
+    return GetActorLevel() >= GetActorMaxLevel()
+end
+
+function SetActorLevel(actor_level)
+    if type(actor_level) == "number" then
+        ResetActorProgress(true)
+        local n = clamp(math.floor(actor_level), 0, GetActorMaxLevel())
+        for i=1, n do
+            experience_core.XP.level = experience_core.XP.level + 1
+            experience_core.XP.skillpoints = experience_core.XP.skillpoints + experience_options.Get("Main/G_SKILLPOINT_PER_LEVEL")
+            experience_core.XP.experience = experience_core.XP.experience_cap
+            experience_core.XP.experience_cap = experience_core.XP.experience_cap + GetNextLevelExperience(experience_core.XP.level)
+        end
+    end
+end
+
+function SetActorSkillPoints(actor_skillpoints)
+    if type(actor_skillpoints) == "number" then
+        experience_core.XP.skillpoints = actor_skillpoints < 0 and 0 or math.floor(actor_skillpoints)
+    end
+end
+
+function SetActorPrestige(actor_prestige)
+    if type(actor_prestige) == "number" then
+        experience_core.XP.prestige = clamp(math.floor(actor_prestige), 0, experience_options.Get("Main/G_MAX_PRESTIGE"))
+    end
+end
+
+function ResetActorProgress(reset_actor, reset_prestige)
+    if (reset_actor and reset_prestige) then
+        experience_core.XP = GetActorProperties()
+        return
+    end
+
+    if reset_actor then
+        experience_core.XP.level = 0
+        experience_core.XP.skillpoints = 0
+        experience_core.XP.experience = 0
+        experience_core.XP.experience_cap = experience_options.Get("XP/LEVEL_UP_BASE")
+    elseif reset_prestige then
+        experience_core.XP.prestige = 0
+    end
+end
+
+function SkillExist(id)
+    return experience_core.GetSkillOption(id, "name") and true or false
+end
+
+function IsUniqueSkill(id)
+    return experience_core.GetSkillOption(id, "unique") and true or false
+end
+
+function IsHiddenSkill(id)
+    return experience_core.GetSkillOption(id, "hidden") and true or false
+end
+
+function SkillWithPrecondition(id)
+    return experience_core.GetSkillOption(id, "precondition") and true or false
+end
+
+function IsEnabledSkill(id)
+    local data = experience_core.GetSkillData(id)
+    return data and data.enable or false
+end
+
+function GetSkillLevel(id)
+    local data = experience_core.GetSkillData(id)
+    return data and data.curr_level
+end
+
+function SetSkillLevel(id, value)
+    local data = experience_core.GetSkillData(id)
+    if (data and data.enable) then
+        data.curr_level = clamp(math.floor(value), 0, experience_core.GetSkillOption(id, "max_level"))
+        experience_core.SetSkillData(id, data, true)
+        return true
+    end
+    return false
+end
+
+function IncreaseSkillLevel(id, take_skillpoint)
+    local data = experience_core.GetSkillData(id)
+    if (data and data.enable and data.curr_level < experience_core.GetSkillOption(id, "max_level")) then
+        data.curr_level = data.curr_level + 1
+        experience_core.SetSkillData(id, data, true)
+
+        if (take_skillpoint and GetActorSkillpoints() > 0) then
+            experience_core.XP.skillpoints = experience_core.XP.skillpoints - 1
+        end
+        return true
+    end
+    return false
+end
+
+function ResetSkill(id, reset_unique)
+    if (not reset_unique and IsUniqueSkill(id)) then
+        return 0
+    end
+
+    local data = experience_core.GetSkillData(id)
+    local points = data and data.curr_level or 0
+    if points > 0 then
+        data.curr_level = 0
+        experience_core.SetSkillData(id, data, true)
+    end
+    return points
+end
+
+function ResetAllSkills(reset_unique)
+    local points = 0
+    local loaded_skills = experience_core.GetLoadedSkills()
+    for id in pairs(loaded_skills) do
+        points = points + ResetSkill(id, reset_unique)
+    end
+    return points
+end
+
+function EnableSkill(id)
+    local data = experience_core.GetSkillData(id)
+    if not (data and not data.enable) then
+        return false
+    end
+
+    data.enable = true
+    experience_core.SetSkillData(id, data, false)
+
+    local gui = experience_skills.GUI
+    if (gui and gui:IsShown()) then
+        gui:FillList()
+    end
+    return true
+end
+
+function DisableSkill(id)
+    local data = experience_core.GetSkillData(id)
+    if not (data and data.enable) then
+        return false
+    end
+
+    local is_learned = data.curr_level > 0
+    if is_learned then
+        experience_core.XP.skillpoints = experience_core.XP.skillpoints + data.curr_level
+        data.curr_level = 0
+    end
+    data.enable = false
+    experience_core.SetSkillData(id, data, is_learned)
+
+    local gui = experience_ui.GUI
+    if (is_learned and gui and gui:IsShown()) then
+        gui:UpdateActorStats()
+    end
+
+    gui = experience_skills.GUI
+    if (gui and gui:IsShown()) then
+        local selected_id = gui.curr_skill.id
+        if selected_id then
+            if selected_id == id then
+                gui:Reset()
+            else
+                gui:FillList()
+                gui:ReselectSkill(selected_id)
+            end
+        else
+            gui:FillList()
+        end
+    end
+    return true
+end
+
+function CanLearnSkill(id, skill_level)
+    if not IsEnabledSkill(id) or GetActorSkillpoints() == 0 then
+        return false
+    end
+
+    local curr_level = skill_level or GetSkillLevel(id)
+    if not curr_level or curr_level >= experience_core.GetSkillOption(id, "max_level") then
+        return false
+    end
+
+    local precond = experience_core.GetSkillOption(id, "precondition")
+    if precond then
+        return not precond(curr_level + 1)
+    end
+
+    return (
+        GetActorLevel() >= NormalizeReqLevel(id, curr_level)
+        and GetActorPrestige() >= NormalizeReqPrestige(id)
+    )
+end
+
+function NormalizeReqLevel(id, curr_level, for_current_level)
+    local value = experience_core.GetSkillOption(id, "req_level") + experience_core.GetSkillOption(id, "each_level") * (for_current_level and curr_level - 1 or curr_level)
+    return clamp(value, 0, GetActorMaxLevelBySkill(id))
+end
+
+function NormalizeReqPrestige(id)
+    return clamp(experience_core.GetSkillOption(id, "req_prestige"), 0, experience_options.Get("Main/G_MAX_PRESTIGE"))
+end
+
+function ResetSkillLevel(id)
+    local points = GetSkillLevel(id)
+    if points then
+        SetSkillLevel(id, 0)
+        return points
+    end
+end
+
+function GetNextLevelExperience(lvl)
+    return experience_options.Get("XP/LEVEL_UP_BASE") + lvl * experience_options.Get("XP/LEVEL_UP_MULT")
+end
+
+function GetCurrMaxExperience()
+    local max_exp
+    local actor_level = GetActorLevel()
+    local actor_max_level = GetActorMaxLevel()
+    if actor_level >= actor_max_level then
+        max_exp = GetNextLevelExperience(actor_max_level-1)
+        return max_exp, max_exp
+    end
+    max_exp = GetNextLevelExperience(actor_level)
+    local curr_exp = max_exp - (math.floor(GetActorExperienceCap()) - math.floor(GetActorExperience()))
+    return curr_exp, max_exp
+end
+
+function TryLevelUp()
+    if (experience_core.XP.experience >= experience_core.XP.experience_cap and not ActorHasMaxLevel()) then
+        experience_core.XP.level = experience_core.XP.level + 1
+        experience_core.XP.skillpoints = experience_core.XP.skillpoints + experience_options.Get("Main/G_SKILLPOINT_PER_LEVEL")
+        experience_core.XP.experience_cap = experience_core.XP.experience_cap + GetNextLevelExperience(GetActorLevel())
+        SendScriptCallback("experience_on_level_up")
+
+        experience_dbg.WriteDebug(3, "Gained New Level! | Level: %s, Total XP: %s, XP Cap: %s", GetActorLevel(), GetActorExperience(), GetActorExperienceCap())
+        experience_messages.AddMessage("lvl", GetActorLevel())
+        TryLevelUp()
+    end
+end
+
+function IncreaseExperience(amount, action_key, ignore_multipliers)
+    if ActorHasMaxLevel() or amount <= 0 then
+        return
+    end
+
+    local mult = not ignore_multipliers and GetExperienceMultiplier(action_key) or 1
+    local value = amount * mult
+    experience_core.XP.experience = experience_core.XP.experience + value
+    SendScriptCallback("experience_on_increase", value)
+    experience_dbg.WriteDebug(7, "XP Increased! | Multiplier: %s, Base XP: %s, Gained XP: %s, Action: %s", mult, amount, value, action_key)
+    experience_messages.AddMessage("exp", value)
+    TryLevelUp()
+end
+
+-- Experience multiplier processing function
+-- Returns the final multiplier
+function GetExperienceMultiplier(action_key)
+    local mult = experience_options.Get("Main/GLOBAL_EXPERIENCE_MULT") + (action_key and experience_core.get_xp_action_mult(action_key) or 0) + experience_potions.get_xp_buff().value + experience_core.get_xp_location_mult()
+    return mult < 0.05 and 0.05 or mult
+end
+
+function AddActionsMultiplier(adder_key, actions_table, force)
+    return experience_core.add_xp_action_mult(adder_key, actions_table, force)
+end
+
+function RemoveActionsMultiplier(adder_key)
+    experience_core.remove_xp_action_mult(adder_key)
+end
+
+
+----------------------------------------------------
+-- INI file designed to store various settings
+----------------------------------------------------
+local ini_configs = ini_file_ex("experience_framework\\cached\\configs.ltx", true)
+function GetINIConfig()
+    return ini_configs
+end
+
+function WriteConfig(section, key, value)
+    ini_configs:w_value(section, key, value)
+    ini_configs:save()
+end
+
+local arpg_config_defaults = nil
+function ReadConfig(section, key, typ, def)
+    if not ini_configs:line_exist(section, key) then
+        arpg_config_defaults = arpg_config_defaults or ini_file("experience_framework\\absolute_defaults.ltx")
+        local defaults = arpg_config_defaults
+        if defaults:line_exist(section, key) then
+            if typ == 1 then
+                def = defaults:r_bool(section, key)
+            elseif typ == 2 then
+                def = defaults:r_float(section, key)
+            else
+                def = defaults:r_string(section, key)
+            end
+        end
+    end
+    return ini_configs:r_value(section, key, typ, def)
+end
+
+
+----------------------------------------------------
+-- Console Command Injector
+-- name             - (string) Command name
+-- description      - (string) Description of the command. Needed for the "help" command
+-- exec_functor     - (function) A function that is triggered after a command is entered. Can take arguments that were entered along with the command, separated by a space
+-- update_stats     - (boolean) If true, then after executing the command, the character status UI elements in the menu will be updated
+----------------------------------------------------
+function AddConsoleCommand(name, description, exec_functor, update_stats)
+    experience_dbg.new_command(name, description, exec_functor, update_stats)
+end
+
+
+-- Tasks, that will not get experience
+IGNORE_TASK_IDS = {
+	["hide_from_surge"]					= true,
+	["hide_from_psi_storm"]				= true,
+    ["task_placeable_waypoint"]         = true
+}
+
+
+----------------------------------------------------
+-- Technical
+----------------------------------------------------
+-- Transfer character progress from previous Experience Framework version 1.X.X
+function GetPreviousActorProgression(old_savedata)
+    if not old_savedata.XP then
+        return GetActorProperties()
+    end
+
+    local t = {}
+    t.level = old_savedata.XP.actor_level or 0
+    t.prestige = old_savedata.XP.prestige_level or 0
+    t.skillpoints = old_savedata.XP.actor_skillpoints or 0
+    t.experience = old_savedata.XP.actor_experience or 0
+    t.experience_cap = old_savedata.XP.actor_next_level_xp or experience_options.Get("XP/LEVEL_UP_BASE")
+
+    if old_savedata.perks_save_data then
+        for _,v in pairs(old_savedata.perks_save_data) do
+            if v.curr_level and v.curr_level > 0 then
+                t.skillpoints = t.skillpoints + v.curr_level
+            end
+        end
+    end
+
+    return t
+end
+
+local supported_game_versions = {
+    ["1.5.2"] = true,
+    ["1.5.3"] = true
+}
+-- If false, then the framework will not start
+function CanStartFramework()
+    return (supported_game_versions[GAME_VERSION] and get_modded_exes_version ~= nil) or false
+end
+
+function GetActorProperties()
+    return {
+        level           = 0,
+        prestige        = 0,
+        skillpoints     = 0,
+        experience      = 0,
+        experience_cap  = experience_options.Get("XP/LEVEL_UP_BASE")
+    }
+end
+
+function GetNPCProperties()
+    return {
+        level = 0,
+        experience = 0,
+        experience_cap = 0,
+        name = ""
+    }
+end
+
+local monster_clsid_to_name = {
+	[clsid.bloodsucker_s] 	= "bloodsucker",
+	[clsid.boar_s] 			= "boar",
+	[clsid.burer_s] 		= "burer",
+	[clsid.chimera_s]		= "chimera",
+	[clsid.controller_s]	= "controller",
+	[clsid.dog_s]			= "dog",
+	[clsid.flesh_s]			= "flesh",
+	[clsid.gigant_s]		= "gigant",
+	[clsid.psy_dog_s]		= "psy_dog",
+	[clsid.psy_dog_phantom_s] = "psy_dog",
+	[clsid.pseudodog_s]		= "pseudodog",
+	[clsid.snork_s]			= "snork",
+	[clsid.tushkano_s]		= "tushkano",
+	[clsid.cat_s]			= "cat",
+	[clsid.fracture_s]		= "fracture",
+	[clsid.zombie_s]		= "zombie"
+}
+local monster_kind_to_name = {
+	["SM_KARLIK"]			= "karlik",
+	["SM_PSYSUCKER"]		= "psysucker",
+	["SM_LURKER"]			= "lurker",
+    ["SM_POLTER_G"]			= "poltergeist",
+	["SM_PYRO_G"]			= "pyrogeist",
+	["SM_PSEUDO_G"]			= "pseudogeist"
+}
+function GetMutantName(obj)
+    local sec = type(obj.section) == "function" and obj:section() or obj:section_name()
+    local kind = SYS_GetParam(0, sec, "kind")
+    local cls = obj:clsid()
+    return monster_kind_to_name[kind] or monster_clsid_to_name[cls]
+end
+
+function CreateRandomProgress(learn_skills, skill_learn_chance)
+    experience_potions.remove_xp_buff()
+    ResetAllSkills(true)
+    experience_core.XP.prestige = math.random(0, experience_options.Get("Main/G_MAX_PRESTIGE"))
+    SetActorLevel(math.random(0, GetActorMaxLevel()))
+    if learn_skills then
+        local skills_table = experience_core.GetLoadedSkills()
+        if is_not_empty(skills_table) then
+            local chance = skill_learn_chance or 50
+            for i=1, GetActorSkillpoints() do
+                if math.random(100) <= chance then
+                    local id = random_key_table(skills_table)
+                    if CanLearnSkill(id) then
+                        IncreaseSkillLevel(id, true)
+                    end
+                end
+            end
+        end
+    end
+end
+
+function IsTraitItem(section)
+    return ini_sys:r_bool_ex(section, "is_experience_trait", false)
+end
+
+function GetTime()
+    return Check_UI("UIExperienceMenu") and device():time_continual() or device():time_global()
+end
+
+function CanWorkInPause()
+    return get_modded_exes_version and get_modded_exes_version() >= 20250731 or false
+end

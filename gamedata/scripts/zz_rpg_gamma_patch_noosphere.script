@@ -1,0 +1,28 @@
+-- Pending stage 7h, step 1: Noosphere food fix; approved baseline is stage 7g.
+-- Restore food on every live actor update, independently of actor.satiety.
+-- In the checked engine sources, CEntityCondition::GetSatiety() const returns 1,
+-- whereas CActorCondition::GetSatiety() lacks const; Lua can read the base stub.
+-- ChangeSatiety(float) overrides correctly and queues a delta, clamped to [0,1].
+-- Keep the stage 7g thirst logic throttled separately.
+local CHECK_MS = 1000
+local next_t = 0
+
+local function actor_on_update()
+    if rpg_gamma_patch.lvl("perk_noosphere_link") < 1 then return end
+    local a = db.actor
+    if not (a and a:alive()) then return end
+    a:change_satiety(1)
+    local t = time_global()
+    if t < next_t then return end
+    next_t = t + CHECK_MS
+    if actor_status_thirst and actor_status_thirst.get_last_drink
+        and thirst_sleep_changer and thirst_sleep_changer.change_thirst then
+        if actor_status_thirst.get_last_drink() > 0 then
+            thirst_sleep_changer.change_thirst(-1)
+        end
+    end
+end
+
+function on_game_start()
+    RegisterScriptCallback("actor_on_update", actor_on_update)
+end

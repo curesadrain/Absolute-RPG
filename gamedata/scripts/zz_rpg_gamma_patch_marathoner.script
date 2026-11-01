@@ -1,0 +1,46 @@
+-- Marathoner: movement speed (+1/2/3/5/7%), level 5 also +33% stamina regeneration
+local SPEED = { [0] = 0, 0.01, 0.02, 0.03, 0.05, 0.07 }
+local REGEN_LEVEL = 5
+local REGEN_BONUS = 0.33
+local MAX_REGEN_PER_SEC = 0.3	-- larger jumps are items/effects, not natural regeneration
+
+local last_power, last_t = nil, 0
+
+local function apply_speed()
+	if not db.actor then return end	-- re-applied on actor_on_first_update
+	local b = SPEED[rpg_gamma_patch.lvl("perk_marathoner")] or 0
+	if b > 0 then
+		speed.add_speed("perk_marathoner", 1 + b, false, true)	-- run / runback
+		speed.add_speed("perk_marathoner", 1 + b, true, true)	-- sprint
+	else
+		speed.remove_speed("perk_marathoner")
+	end
+end
+
+local function on_level(lvl)
+	last_power = nil
+	apply_speed()
+end
+
+local function actor_on_update()
+	if rpg_gamma_patch.lvl("perk_marathoner") < REGEN_LEVEL then return end
+	local a = db.actor
+	if not (a and a:alive()) then return end
+	local t = time_global()
+	local p = a.power
+	if last_power then
+		local dt = (t - last_t) / 1000
+		local d = p - last_power
+		if dt > 0 and dt < 1 and d > 0 and d <= MAX_REGEN_PER_SEC * dt then
+			a:change_power(d * REGEN_BONUS)
+			p = a.power
+		end
+	end
+	last_power, last_t = p, t
+end
+
+function on_game_start()
+	rpg_gamma_patch.listen("perk_marathoner", on_level)
+	RegisterScriptCallback("actor_on_first_update", apply_speed)
+	RegisterScriptCallback("actor_on_update", actor_on_update)
+end

@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='windows-1251'?>
+<string_table>
+  <string id="st_perk_milspec_engineer">
+    <text>Military Electronics</text>
+  </string>
+  <string id="st_perk_milspec_engineer_desc">
+    <text>Military data buses, shielded boards, restricted protocols. You can rebuild a civilian PDA into a device fit to carry reconnaissance data into hostile territory.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Unlocks Milspec PDA crafting in the devices tab. One rank. No recipe USB required. Requires expert tools, a PDA 3.1, 20 transistors, 25 capacitors and 1 K119 plate with carbon-fibre inserts. The standard achievement material discount applies. Resetting the perk locks crafting again; an existing PDA is kept.\n \n%c[d_red]REQUIRES Milspec PDA by Catspaw to be installed and enabled with its resources. Supports the standard Anomaly/GAMMA UIWorkshopCraft crafting menu. The perk unlocks the recipe; materials and tools are still required.</text>
+  </string>
+  <string id="st_perk_milspec_engineer_desc_0">
+    <text>Military data buses, shielded boards, restricted protocols. You can rebuild a civilian PDA into a device fit to carry reconnaissance data into hostile territory.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Unlocks Milspec PDA crafting in the devices tab. One rank. No recipe USB required. Requires expert tools, a PDA 3.1, 20 transistors, 25 capacitors and 1 K119 plate with carbon-fibre inserts. The standard achievement material discount applies. Resetting the perk locks crafting again; an existing PDA is kept.\n \n%c[d_red]REQUIRES Milspec PDA by Catspaw to be installed and enabled with its resources. Supports the standard Anomaly/GAMMA UIWorkshopCraft crafting menu. The perk unlocks the recipe; materials and tools are still required.</text>
+  </string>
+  <string id="st_perk_milspec_engineer_desc_1">
+    <text>Military data buses, shielded boards, restricted protocols. You can rebuild a civilian PDA into a device fit to carry reconnaissance data into hostile territory.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Unlocks Milspec PDA crafting in the devices tab. One rank. No recipe USB required. Requires expert tools, a PDA 3.1, 20 transistors, 25 capacitors and 1 K119 plate with carbon-fibre inserts. The standard achievement material discount applies. Resetting the perk locks crafting again; an existing PDA is kept.\n \n%c[d_red]REQUIRES Milspec PDA by Catspaw to be installed and enabled with its resources. Supports the standard Anomaly/GAMMA UIWorkshopCraft crafting menu. The perk unlocks the recipe; materials and tools are still required.</text>
+  </string>
+</string_table>

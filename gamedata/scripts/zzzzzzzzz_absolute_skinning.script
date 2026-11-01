@@ -1,0 +1,132 @@
+-- Absolute RPG: one-rank FDDA Redone skinning perk.
+-- Speed/sound integration adapted from Dorn's Faster Skinning 0.9.0 (Dorn).
+-- No achievement override, queue removal, crouch or input-lock changes.
+local PERK_ID = "perk_field_dresser"
+local SPEED = 2
+local CAM_ID = 2190 -- FDDA Redone / lam2 animation camera
+local SKIN_CAM_ID = 8559 -- additional camera started by the skinning on_enter
+local NO_LTX_EFFECT = "__absolute_rpg_no_skin_effect__"
+local CUT_SOUND = "interface\\item_usage\\harvest_use"
+local installed = false
+local sound_installed = false
+local wear_installed = false
+local wear_depth = 0
+local cut_sfx = nil
+local next_retry = 0
+
+function is_learned()
+    local core = experience_core
+    if not core or type(core.GetSkillData) ~= "function" then return false end
+    local data = core.GetSkillData(PERK_ID)
+    return data and data.enable and (tonumber(data.curr_level) or 0) >= 1 or false
+end
+
+local function pack(...) return {n = select('#', ...), ...} end
+
+local function install_wear_hook()
+    if wear_installed or not installed then return end
+    if not (item_knife and type(item_knife.degradate) == "function") then return end
+    local original = item_knife.degradate
+    item_knife.degradate = function(...)
+        -- degradate is the harvesting API used both by the loot UI and by
+        -- FDDA's completed cut. Combat wear never passes through this hook.
+        if not is_learned() or wear_depth > 0 or not (db and db.actor and clsid and clsid.wpn_knife_s) then
+            return original(...)
+        end
+        local before = {}
+        db.actor:iterate_inventory(function(owner, object)
+            if object:clsid() == clsid.wpn_knife_s then
+                before[object:id()] = object:condition()
+            end
+        end)
+        -- Do not assume FDDA's animated knife is the one GAMMA wears down:
+        -- its original degradate may select a different inventory knife.
+        wear_depth = wear_depth + 1
+        local result = pack(pcall(original, ...))
+        wear_depth = wear_depth - 1
+        if not result[1] then error(result[2], 0) end
+        db.actor:iterate_inventory(function(owner, object)
+            local previous = before[object:id()]
+            if previous then
+                local current = object:condition()
+                if current < previous then
+                    object:set_condition(current + (previous - current) * 0.5)
+                end
+            end
+        end)
+        return unpack(result, 2, result.n)
+    end
+    wear_installed = true
+end
+
+local function install_sound_hook()
+    if sound_installed or not installed then return end
+    if not (xr_sound and type(xr_sound.set_sound_play) == "function") then return end
+    local original = xr_sound.set_sound_play
+    xr_sound.set_sound_play = function(actor_id, theme, ...)
+        -- Replace only the skinning theme; the accelerated cut plays on enter.
+        if cut_sfx and is_learned() and theme == "inv_mutant_loot_animal" then
+            return
+        end
+        return original(actor_id, theme, ...)
+    end
+    sound_installed = true
+end
+
+function install()
+    if not installed then
+        local skinning = liz_fdda_redone_mutant_skinning
+        if not (lam2 and skinning and type(skinning.get_template_action_mutant_skin) == "function") then
+            return false
+        end
+        -- X-Ray constructors may be callable Luabind tables, not Lua functions.
+        if not cut_sfx and sound_object then
+            cut_sfx = sound_object(CUT_SOUND)
+        end
+        local original = skinning.get_template_action_mutant_skin
+        skinning.get_template_action_mutant_skin = function(...)
+            local action = original(...)
+            -- Read the current rank for each new action (purchase/respec/load).
+            if not is_learned() or type(action) ~= "table" then return action end
+            if type(action.speed) ~= "number" or action.speed <= 0 then return action end
+            action.speed = action.speed * SPEED
+            -- The stock camera/sound are not time-scaled with action.speed.
+            action.cam = NO_LTX_EFFECT
+            if cut_sfx then action.snd = NO_LTX_EFFECT end
+            local original_enter = action.on_enter
+            action.on_enter = function(self, ...)
+                -- Preserve FDDA's setup and lifecycle handlers. Knife wear is
+                -- handled separately at item_knife.degradate, not by skipping it.
+                if original_enter then original_enter(self, ...) end
+                if level and type(level.remove_cam_effector) == "function" then
+                    level.remove_cam_effector(CAM_ID)
+                    level.remove_cam_effector(SKIN_CAM_ID)
+                end
+                if lam_fov_manager and type(lam_fov_manager.restore_fov) == "function" then
+                    lam_fov_manager.restore_fov()
+                end
+                if cut_sfx and db and db.actor then
+                    cut_sfx:play_no_feedback(db.actor, sound_object.s2d, 0, VEC_ZERO, 1.0, SPEED)
+                end
+            end
+            return action
+        end
+        installed = true
+    end
+    install_sound_hook()
+    install_wear_hook()
+    return true
+end
+
+function actor_on_update()
+    if installed and sound_installed and wear_installed then return end
+    local now = time_global()
+    if now < next_retry then return end
+    next_retry = now + 1000
+    install()
+end
+
+function on_game_start()
+    install()
+    RegisterScriptCallback("actor_on_update", actor_on_update)
+end

@@ -1,0 +1,2172 @@
+----------------------------------------------------
+-- Experience Framework
+-- Experience Main Menu
+----------------------------------------------------
+
+
+
+
+local function get_skills_menu(owner, xml)
+    return experience_skills.get_ui(owner, xml)
+end
+
+local function get_tasks_menu(owner, xml)
+    return experience_tasks.get_ui(owner, xml)
+end
+
+local function get_options_menu(owner, xml)
+    return experience_options.get_ui(owner, xml)
+end
+
+local function get_xpmult_menu(owner, xml)
+    return experience_xpmult.get_ui(owner, xml)
+end
+
+local function get_traits_menu(owner, xml)
+    return experience_traits.get_ui(owner, xml)
+end
+
+local function get_console_menu(owner, xml)
+    return experience_dbg.get_ui(owner, xml)
+end
+
+local menu_windows = {
+    {name = "skills",       ui = get_skills_menu,       path = "experience_skills",     hotkey = DIK_keys.DIK_1},
+    {name = "traits",       ui = get_traits_menu,       path = "experience_traits",     hotkey = DIK_keys.DIK_2},
+    {name = "tasks",        ui = get_tasks_menu,        path = "experience_tasks",      hotkey = DIK_keys.DIK_3},
+    {name = "options",      ui = get_options_menu,      path = "experience_options",    hotkey = DIK_keys.DIK_4},
+    {name = "xpmult",       ui = get_xpmult_menu,       path = "experience_xpmult",     hotkey = DIK_keys.DIK_5},
+    {name = "debug",        ui = get_console_menu,      path = "experience_dbg",        hotkey = DIK_keys.DIK_6}
+}
+
+----------------------------------------------------
+-- Callbacks
+----------------------------------------------------
+local ui_is_opening = false
+function gui_wants_to_showup()
+	return ui_is_opening
+end
+
+local function experience_on_destroy()
+    destroy_ui()
+end
+
+function on_game_start()
+    if experience_utils.CanStartFramework() then
+        experience_error.SetRemover(experience_on_destroy)
+    end
+end
+
+----------------------------------------------------
+-- The MAC/PDA owns this window: no fullscreen dialog, pause or main menu.
+function start_opening_ui()
+    start_ui()
+end
+
+GUI = nil
+function get_ui()
+    if not GUI then
+        GUI = UIExperienceMenu()
+        GUI:RegisterCallBacks()
+    end
+    GUI:Reset()
+    GUI:LeftBarButtonClicked("skills")
+    return GUI
+end
+
+function start_ui()
+    if not db.actor or not db.actor:alive() then return end
+    local item = db.actor:item_in_slot(8)
+    if not item or not item:is_device_enabled() or item:condition() <= 0.05 then return end
+    local menu = ActorMenu.get_pda_menu()
+    if not menu:IsShown() then
+        if get_console_cmd(1, "g_3d_pda") then
+            db.actor:activate_slot(8)
+        else
+            menu:ShowDialog(true)
+        end
+    end
+    menu:SetActiveSubdialog("eptRPGGamma")
+end
+
+function destroy_ui()
+    if GUI then GUI:DestroyMenu() end
+    GUI = nil
+end
+----------------------------------------------------
+----------------------------------------------------
+-- Class "UIExperienceMenu"
+----------------------------------------------------
+class "UIExperienceMenu" (CUIScriptWnd)
+
+function UIExperienceMenu:__init() super()
+    self.clr = {
+		def		= GetARGB(255,230,230,230),
+		red		= GetARGB(255,183,17,17),
+		orange	= GetARGB(255,246,174,48),
+		yellow	= GetARGB(255,246,220,48),
+		green	= GetARGB(255,35,200,76),
+		cyan	= GetARGB(255,153,255,255),
+        purple  = GetARGB(255,152,61,228),
+		black	= GetARGB(255,60,60,60),
+        shadow  = GetARGB(200,20,20,20),
+        white	= GetARGB(255,255,255,255)
+	}
+    self.fx_clr = {
+        red     = {183,17,17},
+        orange  = {246,174,48},
+        yellow  = {246,220,48},
+        green   = {35,200,76},
+        cyan    = {70,186,234},
+        purple  = {139,27,233},
+        blue    = {39,88,229}
+    }
+    self.main_windows = {}
+    self.current_wnd = nil
+
+    self.music_track = nil
+    self.menu_tracks = experience_sounds.SoundKeysByCategory("menu_music")
+
+    self.last_prestige = 0
+
+	self:InitControls()
+    self:InitCallBacks()
+end
+
+function UIExperienceMenu:__finalize()
+end
+
+function UIExperienceMenu:InitControls()
+    self:SetWndRect(Frect():set(28,94,784,700.72))
+    self:AllowMovement(true)
+
+    local xml
+    self.xml = CScriptXmlInit()
+    xml = self.xml
+    xml:ParseFile                                   ("pda_rpg_gamma.xml")
+
+    self.background                                 = xml:InitStatic("background", self)
+    self.background:Show(false) -- Inherit the active PDA theme.
+
+    local _ver                                      = xml:InitStatic("static_version", self)
+    _ver:TextControl():SetText                      ("Absolute RPG | Experience Framework " .. experience_core.MOD_VERSION)
+
+    self.actor_level_text                           = xml:InitTextWnd("main_wnd:actor_level:name", self)
+    self.actor_level                                = xml:InitTextWnd("main_wnd:actor_level:count", self)
+    self.experience_text                            = xml:InitTextWnd("main_wnd:actor_level:experience_text", self)
+
+    self.prestige_icon                              = xml:InitStatic("main_wnd:actor_prestige:icon", self)
+    self.prestige_icon:SetWndSize(vector2():set( self.prestige_icon:GetWidth() * utils_xml.screen_ratio() , self.prestige_icon:GetHeight() ))
+
+    self.actor_skillpoints_text                     = xml:InitTextWnd("main_wnd:actor_skillpoints:name", self)
+    self.actor_skillpoints                          = xml:InitTextWnd("main_wnd:actor_skillpoints:count", self)
+
+    self.prestige_up_btn                            = xml:Init3tButton("main_wnd:btn_inc_prestige", self)
+    self.prestige_up_btn:SetWndPos(vector2():set( self.prestige_icon:GetWndPos().x + self.prestige_icon:GetWidth() + 5 , self.prestige_up_btn:GetWndPos().y ))
+    self.prestige_up_btn:Show(false)
+    self:Register(self.prestige_up_btn, "button_prestige_up")
+
+    self.left_bar                                   = xml:InitStatic("main_wnd:left_bar:frame", self)
+    for i=1, #menu_windows do
+        local v = menu_windows[i]
+
+        self.main_windows[v.name] = {}
+        self.main_windows[v.name].path = v.path
+        self.main_windows[v.name].hotkey = v.hotkey
+        self.main_windows[v.name].btn = xml:Init3tButton("main_wnd:left_bar:btn_" .. v.name, self.left_bar)
+        self.main_windows[v.name].wnd = v.ui(self, xml)
+        xml:InitWindow(v.name .. "_wnd", 0, self.main_windows[v.name].wnd)
+        self:AttachChild(self.main_windows[v.name].wnd)
+        self.main_windows[v.name].wnd:Show(false)
+
+        self:Register(self.main_windows[v.name].btn, "main_wnd_left_bar_btn_" .. v.name)
+        local _wrapper = function(handler)
+            self:LeftBarButtonClicked(v.name)
+        end
+        self:AddCallback("main_wnd_left_bar_btn_" .. v.name, ui_events.BUTTON_CLICKED, _wrapper, self)
+    end
+
+	self.message_box                                = UIMessageBoxCustom(xml)
+
+    self.hint_wnd                                   = UIHint(self, 650, xml, "experience_framework\\ui\\on_hover_1")
+
+	self.msg_wnd                                    = xml:InitFrame("msg_wnd:background", self)
+	self.msg_wnd:SetAutoDelete(false)
+	self.msg_wnd:Show(false)
+	self.msg_wnd:SetColor(GetARGB(255,0,0,0))
+	self.msg_wnd_text                               = xml:InitTextWnd("msg_wnd:text", self.msg_wnd)
+	self.msg_wnd_text:SetTextAlignment(2)
+
+    self.pp_fx                                      = xml:InitStatic("pp_effect", self)
+    self.pp_fx:Show(false)
+end
+
+function UIExperienceMenu:InitCallBacks()
+    self:AddCallback("button_prestige_up",      ui_events.BUTTON_CLICKED,           self.OnButtonPrestige,          self)
+    self.message_box:SetCallback("yes", self.OnIncreasePrestige, self)
+    self.message_box:SetCallback("no", self.OnCancelIncreasePrestige, self)
+end
+
+function UIExperienceMenu:RegisterCallBacks()
+    RegisterScriptCallback("experience_on_option_change", self)
+end
+
+function UIExperienceMenu:UnregisterCallBacks()
+    UnregisterScriptCallback("experience_on_option_change", self)
+end
+
+function UIExperienceMenu:UpdateSettings(changed_options)
+    if changed_options["Traits/ALL_SLOTS_OPEN"] ~= nil then
+        local traits = self.main_windows.traits and self.main_windows.traits.wnd
+        if traits then
+            for i = 1, #traits.slots do traits:ManageSlot(i) end
+        end
+    end
+end
+
+function UIExperienceMenu:Reset()
+    self.msg_wnd_timer = nil
+    self.msg_wnd:Show(false)
+    self:StopPPFX(true)
+    self:CloseCurrentWindow(true)
+    self:UpdateActorStats()
+end
+
+function UIExperienceMenu:Update()
+	CUIScriptWnd.Update(self)
+    local signature = table.concat({experience_utils.GetActorLevel(), experience_utils.GetActorSkillpoints(),
+        experience_utils.GetActorExperience(), experience_utils.GetActorPrestige()}, ":")
+    if self.progress_signature ~= signature then
+        self.progress_signature = signature
+        self:UpdateActorStats()
+        if self.current_wnd == "skills" then self.main_windows.skills.wnd:FillList() end
+    end
+
+	if self.msg_wnd_timer ~= nil then
+		self.msg_wnd_timer = self.msg_wnd_timer - 1
+		if self.msg_wnd_timer <= 0 then
+			self.msg_wnd_timer = nil
+			self.msg_wnd:Show(false)
+		end
+	end
+
+    if self.pp_fx_tg ~= nil then
+        local tg = experience_utils.GetTime()
+        if self.pp_fx_tg <= tg then
+            self.pp_fx_tg = tg + 30
+            self.pp_fx_alpha = self.pp_fx_alpha - 5
+            if self.pp_fx_alpha > 0 then
+                self.pp_fx:SetTextureColor( GetARGB(self.pp_fx_alpha, self.pp_fx_clr[1], self.pp_fx_clr[2], self.pp_fx_clr[3]) )
+            elseif self.pp_fx_pulsar then
+                self.pp_fx_alpha = self.pp_fx_start
+                self.pp_fx:SetTextureColor( GetARGB(self.pp_fx_alpha, self.pp_fx_clr[1], self.pp_fx_clr[2], self.pp_fx_clr[3]) )
+            else
+                self.pp_fx_start = nil
+                self.pp_fx_alpha = nil
+                self.pp_fx_pulsar = nil
+                self.pp_fx_tg = nil
+                self.pp_fx_clr = nil
+                self.pp_fx:Show(false)
+            end
+        end
+    end
+
+    if self.current_wnd ~= nil then
+        if self.main_windows[self.current_wnd].wnd.Update then
+            self.main_windows[self.current_wnd].wnd:Update()
+        end
+    end
+
+    self:ProcessHint()
+end
+
+function UIExperienceMenu:UpdateActorStats()
+    self.prestige_up_btn:Show(false)
+    local actor_level = experience_utils.GetActorLevel()
+    local actor_max_level = experience_utils.GetActorMaxLevel()
+    local prestige_level = experience_utils.GetActorPrestige()
+
+    if actor_level >= actor_max_level then
+        self.actor_level:SetText(actor_max_level)
+        if prestige_level < experience_options.Get("Main/G_MAX_PRESTIGE") then
+            self.prestige_up_btn:Show(true)
+        end
+    else
+        self.actor_level:SetText(actor_level)
+    end
+    local curr_exp, max_exp = experience_utils.GetCurrMaxExperience()
+    self.experience_text:SetText(curr_exp .. "\\" .. max_exp .. " XP (" .. round((curr_exp / max_exp) * 100) .. "%)")
+
+    if prestige_level > 0 then
+        self.prestige_icon:Show(true)
+        if prestige_level ~= self.last_prestige then
+            self.prestige_icon:InitTexture(prestige_level >= 10 and "ui_experience_icon_prestige_10" or "ui_experience_icon_prestige_" .. prestige_level)
+            self.last_prestige = prestige_level
+        end
+    else
+        self.prestige_icon:Show(false)
+    end
+
+    local skillpoints = experience_utils.GetActorSkillpoints()
+    self.actor_skillpoints:SetText(skillpoints)
+    if skillpoints == 0 then
+        self.actor_skillpoints:SetTextColor(self.clr.red)
+    else
+        self.actor_skillpoints:SetTextColor(self.clr.green)
+    end
+end
+
+function UIExperienceMenu:CloseCurrentWindow(dont_play_sound)
+    if self.current_wnd ~= nil then
+        self.main_windows[self.current_wnd].wnd:Close()
+        self.current_wnd = nil
+
+        if not dont_play_sound then
+            self:PlaySND("on_close_" .. math.random(1,2))
+        end
+    end
+end
+
+function UIExperienceMenu:LeftBarButtonClicked(name)
+    if (self.current_wnd ~= nil and self.current_wnd == name) then
+        self:CloseCurrentWindow()
+        return
+    end
+
+    self:CloseCurrentWindow(true)
+    self.current_wnd = name
+    self.main_windows[name].wnd:Show(true)
+    self.main_windows[name].wnd:Reset()
+    self:PlaySND("menu_click_1")
+end
+
+function UIExperienceMenu:OnButtonPrestige()
+    self.prestige_up_btn:Show(false)
+    self:CloseCurrentWindow(true)
+    for name in pairs(self.main_windows) do
+        self.main_windows[name].btn:Enable(false)
+    end
+    self.message_box:InitMessageBox("yes_no")
+    self.message_box:AddCapText(game.translate_string("ui_st_experience_main_wnd_inc_prestige_description_cap_t"))
+    self.message_box:AddText(strformat(game.translate_string("ui_st_experience_main_wnd_inc_prestige_description_text"), experience_options.Get("Main/G_ADD_LEVEL_PER_PRESTIGE")), "l")
+    self.message_box:AddCapText(strformat(game.translate_string("ui_st_experience_main_wnd_inc_prestige_description_cap_b"), experience_utils.GetActorPrestige() + 1))
+    self.message_box:ShowMessage()
+    self:PlaySND("prestige_up_1")
+    self:PlayPPFX("yellow", 220, nil, true)
+end
+
+function UIExperienceMenu:OnIncreasePrestige()
+    for name in pairs(self.main_windows) do
+        self.main_windows[name].btn:Enable(true)
+    end
+
+    experience_utils.ResetAllSkills()
+    experience_utils.ResetActorProgress(true)
+    experience_core.XP.prestige = experience_core.XP.prestige + 1
+    self:UpdateActorStats()
+    self:SetMsg(strformat(game.translate_string("ui_st_experience_main_wnd_inc_prestige_done_msg"), experience_utils.GetActorPrestige()), 5)
+    self:PlaySND("prestige_up_2")
+    self:StopPPFX(true)
+    self:PlayPPFX("blue", 255)
+end
+
+function UIExperienceMenu:OnCancelIncreasePrestige()
+    self.prestige_up_btn:Show(true)
+    for name in pairs(self.main_windows) do
+        self.main_windows[name].btn:Enable(true)
+    end
+    self:PlaySND("menu_click_1")
+    self:StopPPFX()
+end
+
+function UIExperienceMenu:Close()
+    self:CloseCurrentWindow(true)
+    self.message_box:HideMessage()
+    self.hint_wnd:Show(false)
+    self:StopPPFX(true)
+    ActorMenu.get_pda_menu():SetActiveSubdialog("eptLauncher")
+end
+
+function UIExperienceMenu:OnKeyboard(dik, keyboard_action)
+	local res = CUIScriptWnd.OnKeyboard(self, dik, keyboard_action)
+
+    if res == false then
+        if keyboard_action == ui_events.WINDOW_KEY_PRESSED then
+            for name, v in pairs(self.main_windows) do
+                if (v.hotkey and dik == v.hotkey) then
+                    self:LeftBarButtonClicked(name)
+                    return res
+                end
+            end
+        end
+    end
+
+    if self.current_wnd == nil then
+        if res == false then
+            if keyboard_action == ui_events.WINDOW_KEY_PRESSED then
+                if dik == DIK_keys.DIK_ESCAPE then
+                    self:PlaySND("on_close_" .. math.random(1,2))
+                    self:Close()
+                end
+            end
+        end
+    elseif self.main_windows[self.current_wnd].wnd.OnKeyboard then
+        self.main_windows[self.current_wnd].wnd:OnKeyboard(res, dik, keyboard_action)
+    end
+
+	return res
+end
+
+function UIExperienceMenu:DestroyMenu()
+    self:CloseCurrentWindow(true)
+    for _,v in pairs(self.main_windows) do
+        if v.path then
+            _G[v.path].GUI = nil
+        end
+    end
+    self.message_box:HideMessage()
+    self:UnregisterCallBacks()
+    self:StopMenuMusic()
+end
+
+function UIExperienceMenu:PlayMenuMusic()
+end
+
+function UIExperienceMenu:StopMenuMusic()
+    experience_sounds.Stop(self.music_track)
+end
+
+function UIExperienceMenu:UpdateMenuMusicVolume()
+    experience_sounds.ChangeVolume(self.music_track, experience_options.Get("UI/MENU_MUSIC_VOLUME"))
+end
+
+function UIExperienceMenu:PlaySND(key)
+    experience_sounds.Play(key, nil, experience_options.Get("UI/UI_SOUND_VOLUME"))
+end
+
+function UIExperienceMenu:StopSND(key)
+    experience_sounds.Stop(key)
+end
+
+function UIExperienceMenu:ProcessHint()
+    if (self.current_wnd ~= nil and self.main_windows[self.current_wnd].wnd.ProcessHint) then
+        if self.main_windows[self.current_wnd].wnd:ProcessHint(self.hint_wnd) == true then
+            return
+        end
+    end
+
+    if self.actor_level_text:IsCursorOverWindow() then
+        self.hint_wnd:Update(strformat(game.translate_string("ui_st_experience_main_wnd_actor_level_hint"), experience_utils.GetActorMaxLevel(), math.floor(experience_utils.GetActorExperience())))
+        return
+    elseif self.prestige_icon:IsCursorOverWindow() then
+        self.hint_wnd:Update(strformat(game.translate_string("ui_st_experience_main_wnd_actor_prestige_hint"), experience_utils.GetActorPrestige(), experience_options.Get("Main/G_MAX_PRESTIGE")))
+        return
+    elseif self.actor_skillpoints_text:IsCursorOverWindow() then
+        self.hint_wnd:Update(strformat(game.translate_string("ui_st_experience_main_wnd_actor_skillpoints_hint"), experience_options.Get("Main/G_SKILLPOINT_PER_LEVEL")))
+        return
+    end
+    for name, v in pairs(self.main_windows) do
+        if (v.btn:IsCursorOverWindow() and v.btn:IsEnabled()) then
+            self.hint_wnd:Update(game.translate_string("ui_st_experience_main_wnd_btn_hint_" .. name))
+            return
+        end
+    end
+    self.hint_wnd:Update()
+end
+
+function UIExperienceMenu:SetMsg(text, tmr, align)
+	if text == "" then
+		return
+	end
+	self.msg_wnd:Show(true)
+	
+	align = align or 2
+	local _x = 10
+	self.msg_wnd_text:SetTextAlignment(align)
+	self.msg_wnd_text:SetWndSize(vector2():set(736, 20))
+	self.msg_wnd_text:SetText(text)
+	self.msg_wnd_text:AdjustHeightToText()
+	self.msg_wnd_text:SetWndSize(vector2():set(736, self.msg_wnd_text:GetHeight() + 10))
+	self.msg_wnd_text:SetWndPos(vector2():set(_x, 20))
+	
+	self.msg_wnd:SetWndSize(vector2():set(756, self.msg_wnd_text:GetHeight() + 44))
+	self.msg_wnd:SetWndPos(vector2():set(0, 80))
+
+	self.msg_wnd_timer = 100 * tmr
+end
+
+function UIExperienceMenu:PlayPPFX(clr_id, start_alpha, clr_table, looped)
+    if not experience_options.Get("UI/ENABLE_UI_PP_FX") then
+        return
+    end
+
+    if not (clr_id and self.fx_clr[clr_id]) then
+        if not clr_table then
+            return
+        end
+    end
+
+    if looped then
+        self.pp_fx_pulsar = true
+    else
+        self.pp_fx_pulsar = nil
+    end
+    self.pp_fx_clr = clr_table or self.fx_clr[clr_id]
+    self.pp_fx_start = start_alpha and clamp(math.floor(start_alpha), 10, 255) or 150
+    self.pp_fx_alpha = self.pp_fx_start
+    self.pp_fx_tg = experience_utils.GetTime() + 30
+    self.pp_fx:Show(true)
+    self.pp_fx:SetTextureColor( GetARGB(self.pp_fx_alpha, self.pp_fx_clr[1], self.pp_fx_clr[2], self.pp_fx_clr[3]) )
+end
+
+function UIExperienceMenu:StopPPFX(force)
+    self.pp_fx_pulsar = nil
+    if force then
+        self.pp_fx_start = nil
+        self.pp_fx_alpha = nil
+        self.pp_fx_tg = nil
+        self.pp_fx_clr = nil
+        self.pp_fx:Show(false)
+    end
+end
+
+function UIExperienceMenu:experience_on_option_change(opt_temp)
+    self:UpdateSettings(opt_temp)
+end
+
+
+
+----------------------------------------------------
+-- Class "UIHint"
+-- Based on utils_ui.UIHint
+----------------------------------------------------
+class "UIHint"
+function UIHint:__init(owner, delay, xml, show_snd)
+    self.pda_owner = owner
+    self.txt = ""
+	self.timer = 0
+	self.delay = delay or 500
+    self.show_snd = show_snd or nil
+
+	self.dialog = xml:InitFrame("hint_wnd:background", owner)
+	self.dialog_text = xml:InitTextWnd("hint_wnd:text", self.dialog)
+	self:Show(false)
+end
+
+function UIHint:Update(txt)
+	if not self:Pass(txt) then
+        if self:IsShown() then
+		    self:Show(false)
+        end
+		return
+	end
+
+	if (txt == self.txt) then
+		utils_xml.sync_cursor(self.dialog, nil, 15, 15)
+        if self.pda_owner then
+            local p = self.dialog:GetWndPos()
+            self.dialog:SetWndPos(vector2():set(
+                math.max(0, math.min(p.x - 28, self.pda_owner:GetWidth() - self.dialog:GetWidth())),
+                math.max(0, math.min(p.y - 94, self.pda_owner:GetHeight() - self.dialog:GetHeight()))))
+        end
+        if not self:IsShown() then
+		    self:Show(true)
+            if self.show_snd then
+                utils_obj.play_sound(self.show_snd)
+            end
+        end
+		return
+	end
+
+	self.dialog_text:SetText(txt)
+	self.dialog_text:AdjustHeightToText()
+
+	local w = self.dialog:GetWidth()
+	w = w >= 102 and w or 102
+	local h = self.dialog_text:GetHeight() + 30
+	h = h >= 102 and h or 102
+	self.dialog:SetWndSize(vector2():set(w,h))
+
+	FitInRect(self.dialog, Frect():set(0,0,1024,768), 0, 100)
+	utils_xml.sync_cursor(self.dialog, nil, 15, 15)
+        if self.pda_owner then
+            local p = self.dialog:GetWndPos()
+            self.dialog:SetWndPos(vector2():set(
+                math.max(0, math.min(p.x - 28, self.pda_owner:GetWidth() - self.dialog:GetWidth())),
+                math.max(0, math.min(p.y - 94, self.pda_owner:GetHeight() - self.dialog:GetHeight()))))
+        end
+
+	self.txt = txt
+	return
+end
+
+function UIHint:Pass(txt)
+	local tg = experience_utils.GetTime()
+	if not (txt and txt ~= "") then
+		self.timer   = tg
+		self.txt      = nil
+		return false
+	end
+
+	if txt == self.txt then
+		return true
+	end
+
+	if (tg < self.timer + self.delay) then
+		return false
+	end
+
+	self.timer = tg
+	return true
+end
+
+function UIHint:Show(state)
+	self.dialog:Show(state)
+end
+
+function UIHint:IsShown()
+	return self.dialog:IsShown()
+end
+
+
+----------------------------------------------------
+-- Class "UIListBoxItemCustom"
+-- Needed for UIComboBoxCustom
+class "UIListBoxItemCustom" (CUIListBoxItem)
+function UIListBoxItemCustom:__init(section, width) super(section, width)
+	self.section 				= section
+
+	self.text					= self:GetTextItem()
+	self.text:SetWndRect		(Frect():set(0, 0, width, 22))
+	self:SetTextColor			(GetARGB(240, 220, 220, 220))
+	self.text:SetFont			(GetFontLetterica16Russian())
+	self.text:SetWndSize		(vector2():set(width - 2, 22))
+	self.text:SetWndPos			(vector2():set(2, 0))
+	self.text:SetEllipsis		(true)
+	self.text:SetText			(section)
+end
+----------------------------------------------------
+-- Class "UIComboBoxCustom"
+-- I had to create this class because the original CUIComboBox works very strangely
+-- Available methods:
+--[[
+class UIComboBoxCustom : CUIScriptWnd {
+    UIComboBoxCustom (CScriptXmlInit*, string, CUIWindow*)
+
+    function SetCallback(function, owner)
+    function AddItem(string, number)
+    function ClearList()
+    function GetCurrentID()
+    function SetCurrentID(number)
+    function SetText(string)
+    function GetText()
+    function GetTextOf(number)
+    function SetTextColor(number)
+    function GetTextColor()
+    function GetListSize()
+    function ShowList(boolean)
+    function SetScrollPos(number)
+    function GetCurrentScrollPos()
+    function GetMinScrollPos()
+    function GetMaxScrollPos()
+    function ScrollToBegin()
+    function ScrollToEnd()
+--]]
+----------------------------------------------------
+class "UIComboBoxCustom" (CUIScriptWnd)
+function UIComboBoxCustom:__init(xml, xml_path, parent) super()
+    self.iblocked = false
+    self.owner = nil
+    self.callback_func = nil
+    self.curr_listID = 0
+    self.list_table = {}
+    self.clr = {
+        [0] = GetARGB(240,130,130,130)
+    }
+
+    self:InitControls(xml, xml_path, parent)
+    self:InitCallBacks()
+    self:Show(true)
+end
+
+function UIComboBoxCustom:__finalize()
+end
+
+function UIComboBoxCustom:InitControls(xml, xml_path, parent)
+
+    if parent then
+        parent:AttachChild                          (self)
+    end
+
+    xml:InitWindow                                  (xml_path, 0, self)
+
+    self.frame_line                                 = xml:InitFrameLine(xml_path .. ":frame_cap", self)
+    self.cap_text                                   = xml:InitTextWnd(xml_path .. ":frame_cap:cap_text", self.frame_line)
+    self.clr[1] = self.cap_text:GetTextColor()
+    self.cap_text:SetText("")
+
+    self.list_frame                                 = xml:InitFrame(xml_path .. ":list_frame", self)
+    self.list                                       = xml:InitListBox(xml_path .. ":list_frame:list", self.list_frame)
+    self:Register(self.list, "list_item_select")
+    self.list:SetSelectedIndex(-1)
+    self.list_frame:Show(false)
+end
+
+function UIComboBoxCustom:InitCallBacks()
+    self:AddCallback("list_item_select", ui_events.LIST_ITEM_SELECT, self.OnListItemSelect, self)
+end
+
+function UIComboBoxCustom:SetCallback(LIST_ITEM_CLICKED_FUNC, owner)   -- Like AddCallback with LIST_ITEM_CLICKED UI event key
+    if type(LIST_ITEM_CLICKED_FUNC) == "function" then
+        self.callback_func = LIST_ITEM_CLICKED_FUNC
+        self.owner = owner
+    end
+end
+
+function UIComboBoxCustom:AddItem(str, index)
+    if index < 1 then
+        return
+    end
+
+    if self.list_table[index] then
+        if self.list_table[index] ~= str then
+            self.list_table[index] = str
+            local item = self.list:GetItemByIndex(index - 1)
+            item.text:SetText(str)
+            if index == self.curr_listID then
+                self.cap_text:SetText(str)
+            end
+        end
+        return
+    end
+
+    self.list:AddExistingItem(UIListBoxItemCustom(str, self.list:GetWidth()))
+    self.list_table[index] = str
+end
+
+function UIComboBoxCustom:ClearList()
+    self.list:Clear()
+    empty_table(self.list_table)
+    self.cap_text:SetText("")
+    self.curr_listID = 0
+    self:ShowList(false)
+end
+
+function UIComboBoxCustom:GetCurrentID()
+    return self.curr_listID
+end
+
+function UIComboBoxCustom:SetCurrentID(index)
+    if self.list_table[index] then
+        self.cap_text:SetText(self.list_table[index])
+        self.curr_listID = index
+    else
+        self.cap_text:SetText("")
+        self.curr_listID = 0
+    end
+end
+
+function UIComboBoxCustom:SetText(text)
+    self.cap_text:SetText(text)
+end
+
+function UIComboBoxCustom:GetText()
+    return self.cap_text:GetText()
+end
+
+function UIComboBoxCustom:GetTextOf(index)
+    return self.list_table[index] or ""
+end
+
+function UIComboBoxCustom:SetTextColor(num)
+    self.clr[1] = num
+    if not self.iblocked then
+        self.cap_text:SetTextColor(num)
+    end
+end
+
+function UIComboBoxCustom:GetTextColor()
+    return self.clr[1]
+end
+
+function UIComboBoxCustom:GetListSize()
+    return #self.list_table
+end
+
+function UIComboBoxCustom:ShowList(state)
+    self.list_frame:Show(state)
+end
+
+function UIComboBoxCustom:Enable(state)
+    if state == true then
+        self.iblocked = false
+        self.cap_text:SetTextColor(self.clr[1])
+    else
+        self.iblocked = true
+        self.cap_text:SetTextColor(self.clr[0])
+        self:ShowList(false)
+    end
+end
+
+function UIComboBoxCustom:IsEnabled()
+    return not self.iblocked
+end
+
+function UIComboBoxCustom:SetScrollPos(num)
+    self.list:SetScrollPos(num)
+end
+
+function UIComboBoxCustom:GetCurrentScrollPos()
+    return self.list:GetCurrentScrollPos()
+end
+
+function UIComboBoxCustom:GetMinScrollPos()
+    return self.list:GetMinScrollPos()
+end
+
+function UIComboBoxCustom:GetMaxScrollPos()
+    return self.list:GetMaxScrollPos()
+end
+
+function UIComboBoxCustom:ScrollToBegin()
+    self.list:ScrollToBegin()
+end
+
+function UIComboBoxCustom:ScrollToEnd()
+    self.list:ScrollToEnd()
+end
+
+function UIComboBoxCustom:OnListItemSelect()
+    local idx = self.list:GetSelectedIndex() + 1    -- Plus one, because in CUIListBox the index is counted from zero
+    self.list:SetSelectedIndex(-1)
+    self:ShowList(false)
+
+    if (self.list_table[idx] and idx ~= self.curr_listID) then
+        self.cap_text:SetText(self.list_table[idx])
+        self.curr_listID = idx
+        if self.callback_func ~= nil then
+            self.callback_func(self.owner)
+        end
+    end
+end
+
+function UIComboBoxCustom:OnButtonClicked()
+    self:ShowList(not self.list_frame:IsShown())
+end
+
+function UIComboBoxCustom:OnKeyboard(dik, keyboard_action)
+	local res = CUIScriptWnd.OnKeyboard(self, dik, keyboard_action)
+
+    if self.iblocked then
+        return res
+    end
+
+    if (keyboard_action == ui_events.WINDOW_KEY_PRESSED and dik == DIK_keys.MOUSE_1) then
+        if self.frame_line:IsCursorOverWindow() then
+            self:OnButtonClicked()
+        elseif (self.list_frame:IsShown() and not self.list:IsCursorOverWindow()) then
+            self:ShowList(false)
+        end
+    end
+	return res
+end
+
+
+----------------------------------------------------
+-- Class "UIMessageBoxCustom"
+--[[
+class UIMessageBoxCustom {
+    UIMessageBoxCustom (CScriptXmlInit*, string)
+
+    function SetCallback(string, function, owner)
+    function UnsetCallback(string)
+    function InitMessageBox(string)
+    function AddCapText(string)
+    function AddText(string, string)
+    function Clear()
+    function ShowMessage()
+    function HideMessage()
+    function IsShown()
+    function GetWidth()
+    function SetWidth(number)
+--]]
+----------------------------------------------------
+class "UIMessageBoxCustom"
+function UIMessageBoxCustom:__init(xml, path)
+    self.xml = xml
+    self.path = path or "message_box"
+    self.curr_typ = nil
+    self.callback = {
+        ok      = {func = nil, owner = nil},
+        yes     = {func = nil, owner = nil},
+        no      = {func = nil, owner = nil},
+        cancel  = {func = nil, owner = nil}
+    }
+    self.buttons = {}
+    self.txts = {}
+
+    local xml = self.xml
+    local path = self.path
+
+    self.wnd                                        = CUIScriptWnd()
+    self.wnd:SetWndRect                             (Frect():set(28,94,784,700.72))
+    self.wnd:SetAutoDelete                          (true)
+    self.wnd:AllowMovement                          (false)
+	if experience_utils.CanWorkInPause() then
+		self.wnd:AllowWorkInPause					(true)
+	end
+
+    self.dialog                                     = xml:InitFrame(path .. ":frame", self.wnd)
+    self.dialog:SetWndPos(vector2():set(0,0))
+    self.dialog:SetWndSize(vector2():set(542,100))
+
+    self.buttons.ok                                 = xml:Init3tButton(path .. ":btn", self.dialog)
+    self.buttons.ok:TextControl():SetText(game.translate_string("Btn_OK"))
+    self.wnd:Register(self.buttons.ok, "button_click_ok")
+
+    self.buttons.yes                                = xml:Init3tButton(path .. ":btn", self.dialog)
+    self.buttons.yes:TextControl():SetText(game.translate_string("Btn_Yes"))
+    self.wnd:Register(self.buttons.yes, "button_click_yes")
+
+    self.buttons.no                                 = xml:Init3tButton(path .. ":btn", self.dialog)
+    self.buttons.no:TextControl():SetText(game.translate_string("Btn_No"))
+    self.wnd:Register(self.buttons.no, "button_click_no")
+
+    self.buttons.cancel                             = xml:Init3tButton(path .. ":btn", self.dialog)
+    self.buttons.cancel:TextControl():SetText(game.translate_string("Btn_Cancel"))
+    self.wnd:Register(self.buttons.cancel, "button_click_cancel")
+    self:hide_buttons()
+
+    self.wnd:AddCallback("button_click_ok",         ui_events.BUTTON_CLICKED,       self.callback_btn_ok,       self)
+    self.wnd:AddCallback("button_click_yes",        ui_events.BUTTON_CLICKED,       self.callback_btn_yes,      self)
+    self.wnd:AddCallback("button_click_no",         ui_events.BUTTON_CLICKED,       self.callback_btn_no,       self)
+    self.wnd:AddCallback("button_click_cancel",     ui_events.BUTTON_CLICKED,       self.callback_btn_cancel,   self)
+
+    self.wnd:HideDialog()
+    self.wnd:Show(false)
+end
+
+function UIMessageBoxCustom:SetCallback(btn_name, functor, owner)
+    if (self.callback[btn_name] and type(functor) == "function") then
+        self.callback[btn_name].func = functor
+        self.callback[btn_name].owner = owner
+    end
+end
+
+function UIMessageBoxCustom:UnsetCallback(btn_name)
+    if self.callback[btn_name] then
+        self.callback[btn_name].func = nil
+        self.callback[btn_name].owner = nil
+    end
+end
+
+function UIMessageBoxCustom:InitMessageBox(typ)
+    self:HideMessage()
+    self:Clear()
+    self:hide_buttons()
+    self.curr_typ = nil
+
+    if typ == "yes_no" then
+        self.buttons.yes:Show(true)
+        self.buttons.no:Show(true)
+        self.curr_typ = typ
+
+    elseif typ == "yes_no_cancel" then
+        self.buttons.yes:Show(true)
+        self.buttons.no:Show(true)
+        self.buttons.cancel:Show(true)
+        self.curr_typ = typ
+
+    elseif typ == "ok_cancel" then
+        self.buttons.ok:Show(true)
+        self.buttons.cancel:Show(true)
+        self.curr_typ = typ
+
+    elseif typ == "ok" then
+        self.buttons.ok:Show(true)
+        self.curr_typ = typ
+    end
+end
+
+function UIMessageBoxCustom:AddCapText(text)
+    if not (text and text ~= "") then
+        return
+    end
+
+    local i = #self.txts + 1
+    self.txts[i] = self.xml:InitTextWnd(self.path .. ":msg_cap", self.dialog)
+    self.txts[i]:SetWndPos(vector2():set( 0 , 0 ))
+    self.txts[i]:SetWndSize(vector2():set( self.dialog:GetWidth() - 10 , 50 ))
+    self.txts[i]:SetText(text)
+    self.txts[i]:AdjustHeightToText()
+    self.txts[i]:SetWndSize(vector2():set( self.txts[i]:GetWidth() , self.txts[i]:GetHeight() + 20 ))
+
+    if self.wnd:IsShown() then
+        self:adjust_message_box()
+    end
+end
+
+function UIMessageBoxCustom:AddText(text, align)
+    if not (text and text ~= "") then
+        return
+    end
+
+    local i = #self.txts + 1
+    self.txts[i] = self.xml:InitTextWnd(self.path .. ":msg_text_" .. (align or "c"), self.dialog)
+    self.txts[i]:SetWndPos(vector2():set( 0 , 0 ))
+    self.txts[i]:SetWndSize(vector2():set( self.dialog:GetWidth() - 10 , 50 ))
+    self.txts[i]:SetText(text)
+    self.txts[i]:AdjustHeightToText()
+    self.txts[i]:SetWndSize(vector2():set( self.txts[i]:GetWidth() , self.txts[i]:GetHeight() + 10 ))
+
+    if self.wnd:IsShown() then
+        self:adjust_message_box()
+    end
+end
+
+function UIMessageBoxCustom:Clear()
+    for i=1, #self.txts do
+        self.txts[i]:Show(false)
+        self.txts[i] = nil
+    end
+end
+
+function UIMessageBoxCustom:ShowMessage()
+    if self.curr_typ == nil or self.wnd:IsShown() then
+        return
+    end
+    local cpos = GetCursorPosition()
+    self:adjust_message_box()
+    self.wnd:ShowDialog(true)
+    SetCursorPosition(cpos)
+end
+
+function UIMessageBoxCustom:HideMessage()
+    if self.wnd:IsShown() then
+        self.wnd:HideDialog()
+        self.wnd:Show(false)
+    end
+end
+
+function UIMessageBoxCustom:IsShown()
+    return self.wnd:IsShown()
+end
+
+function UIMessageBoxCustom:GetWidth()
+    return self.dialog:GetWidth()
+end
+
+function UIMessageBoxCustom:SetWidth(width)
+    self.dialog:SetWndSize(vector2():set( width , self.dialog:GetHeight() ))
+    if self.wnd:IsShown() then
+        self:adjust_message_box()
+    end
+end
+
+----------------------------------------------------
+-- Technical
+----------------------------------------------------
+function UIMessageBoxCustom:hide_buttons()
+    for k in pairs(self.buttons) do
+        self.buttons[k]:Show(false)
+    end
+end
+
+function UIMessageBoxCustom:adjust_message_box()
+    local btn_w = self.buttons.ok:GetWidth()
+    local w = self.dialog:GetWidth()
+    local h_txt = self:get_text_height()
+    local h = 0
+
+    if h_txt <= 225 then
+        local n = #self.txts
+        local offset = ((225 - h_txt) / n) / 2
+        for i=1, n do
+            self.txts[i]:SetWndPos(vector2():set( 5 , h + offset ))
+            h = self.txts[i]:GetWndPos().y + self.txts[i]:GetHeight()
+        end
+        h = h + offset
+    else
+        h = 5
+        for i=1, #self.txts do
+            self.txts[i]:SetWndPos(vector2():set( 5 , h ))
+            h = h + self.txts[i]:GetHeight()
+        end
+        h = h + 25
+    end
+
+    if self.curr_typ == "yes_no" then
+        self.buttons.yes:SetWndPos(vector2():set( w / 2 - btn_w - 5 , h ))
+        self.buttons.no:SetWndPos(vector2():set( w / 2 + 5 , h ))
+
+    elseif self.curr_typ == "yes_no_cancel" then
+        self.buttons.yes:SetWndPos(vector2():set( w / 2 - btn_w * 1.5 - 5 , h ))
+        self.buttons.no:SetWndPos(vector2():set( w / 2 - btn_w / 2 , h ))
+        self.buttons.cancel:SetWndPos(vector2():set( w / 2 + btn_w * 0.5 + 5 , h ))
+
+    elseif self.curr_typ == "ok_cancel" then
+        self.buttons.ok:SetWndPos(vector2():set( w / 2 - btn_w - 5 , h ))
+        self.buttons.cancel:SetWndPos(vector2():set( w / 2 + 5 , h ))
+
+    elseif self.curr_typ == "ok" then
+        self.buttons.ok:SetWndPos(vector2():set( w / 2 - btn_w / 2 , h ))
+    end
+
+    h = h + self.buttons.ok:GetHeight() + 5
+    self.dialog:SetWndSize(vector2():set( w , h ))
+    self.dialog:SetWndPos(vector2():set( 378 - w / 2 , 303.36 - h / 2 ))
+end
+
+function UIMessageBoxCustom:get_text_height()
+    local h = 0
+    for i=1, #self.txts do
+        h = h + self.txts[i]:GetHeight()
+    end
+    return h
+end
+
+function UIMessageBoxCustom:callback_btn_ok()
+    self:HideMessage()
+    if self.callback.ok.func ~= nil then
+        self.callback.ok.func(self.callback.ok.owner)
+    end
+end
+
+function UIMessageBoxCustom:callback_btn_yes()
+    self:HideMessage()
+    if self.callback.yes.func ~= nil then
+        self.callback.yes.func(self.callback.yes.owner)
+    end
+end
+
+function UIMessageBoxCustom:callback_btn_no()
+    self:HideMessage()
+    if self.callback.no.func ~= nil then
+        self.callback.no.func(self.callback.no.owner)
+    end
+end
+
+function UIMessageBoxCustom:callback_btn_cancel()
+    self:HideMessage()
+    if self.callback.cancel.func ~= nil then
+        self.callback.cancel.func(self.callback.cancel.owner)
+    end
+end
+
+
+----------------------------------------------------
+-- Class "UIScrollbarContainer"
+
+-- Based on utils_ui.UICellContainer
+----------------------------------------------------
+class "UIScrollbarContainer"
+function UIScrollbarContainer:__init(id, xml, owner, wnd_path, ele_base, xml_path, use_frame)
+    self.ID             = id
+    self.clr = {
+        def             = GetARGB(255,255,255,255),
+        pick            = GetARGB(255,135,217,255),
+        drag            = GetARGB(150,255,255,255),
+        hide            = GetARGB(70,255,255,255),
+        shadow          = GetARGB(200,20,20,20),
+        hide_shadow     = GetARGB(70,20,20,20),
+        black           = GetARGB(255,0,0,0)
+    }
+    self.owner          = owner
+    self.xml            = xml or owner.xml
+    self.path           = xml_path or "scrollbar_container"
+    self.grid_width     = 42 * utils_xml.screen_ratio()
+    self.grid_height    = 40
+    self.grid_offset    = 2
+    self.cols           = 0
+    self.grid           = {}
+    self.elements       = {}
+    self.selected       = nil
+    self.hovered        = nil
+    self.hold           = { indx = nil, icon = nil, tg = 0, texture = nil, w = 0, h = 0, axis = nil }
+    self.m_db           = { indx = nil, tg = 0 }
+    self.s_pd           = { power = 1, scroll_power = 1, power_up = 3, hold = false, offset = 0, start = 0 }
+    self.scroll_pos     = 0
+    self.tg             = 0
+
+    -- Properties -----------------------------------------------
+    self.sort_method    = function(t,a,b) return a < b end
+    self.can_stack      = false
+    self.can_drag       = false
+    self.can_select     = false
+    self.show_scroll    = true
+    self.disable_callback = {}
+    -------------------------------------------------------------
+
+    self:InitControls(wnd_path, ele_base, use_frame)
+    self:SetColumns()
+    self:Scroll_Reinit()
+end
+
+function UIScrollbarContainer:InitControls(wnd_path, ele_base, use_frame)
+    local xml = self.xml
+    local path = self.path
+
+    if use_frame then
+        self.st                         = xml:InitFrame(wnd_path, ele_base)
+    else
+        self.st                         = xml:InitStatic(wnd_path, ele_base)
+    end
+
+    self.scroll                         = xml:InitScrollView(path .. ":scroll", self.st)
+    self.scroll:SetWndPos(vector2():set( 0 , 0 ))
+    utils_xml.sync_size(self.st, self.scroll)
+
+    self.frame                          = xml:InitStatic(path .. ":frame", nil)
+    self.frame:SetWndPos(vector2():set( 0 , 0 ))
+    utils_xml.sync_size(self.scroll, self.frame)
+
+    self.hold.icon                      = xml:InitStatic(path .. ":element:st", self.owner)
+    self.hold.icon:SetStretchTexture(true)
+    self.hold.icon:Show(false)
+
+    self.pad                            = xml:InitStatic(path .. ":pad", ele_base)
+    self.pad:SetStretchTexture(true)
+	self.pad:SetTextureColor( GetARGB(100,255,255,255) )
+	self.pad:Show(false)
+end
+
+-------------------------------------------------------------------------------------------------
+-- Controls
+-------------------------------------------------------------------------------------------------
+function UIScrollbarContainer:Reset()
+    self.tg = 0
+    self.selected = nil
+    self.hovered = nil
+
+    self.hold.indx = nil
+    self.hold.icon:Show(false)
+    self.hold.tg = 0
+    self.hold.texture = nil
+    self.hold.w = 0
+    self.hold.h = 0
+    self.hold.axis = nil
+
+    self.m_db.indx = nil
+    self.m_db.tg = 0
+
+    self.s_pd.power = 1
+    self.s_pd.scroll_power = 1
+    self.s_pd.power_up = 3
+    self.s_pd.hold = false
+    self.s_pd.offset = 0
+    self.s_pd.start = 0
+
+    for _,v in pairs(self.elements) do
+        v.ele:Reset()
+    end
+
+    self:Scroll_Reinit()
+    self:Scroll_Enable(true)
+    self:Sort()
+end
+
+function UIScrollbarContainer:Sort()
+    self:Area_OnClear()
+    for indx, v in spairs(self.elements, self.sort_method) do
+        local g_w = v.ele.W / self.grid_width
+        local g_h = v.ele.H / self.grid_height
+        self:InsertElement(indx, g_w, g_h)
+    end
+end
+
+-- Add existing item as element
+function UIScrollbarContainer:AddItem(section)
+    if not ini_sys:section_exist(section) then
+        return
+    end
+
+    local grid_width = SYS_GetParam(2, section, "inv_grid_width", 1)
+    local grid_height = SYS_GetParam(2, section, "inv_grid_height", 1)
+    local icon_texture = utils_xml.get_icons_texture(section)
+    local axis = utils_xml.get_item_axis(section)
+    return self:AddElement(section, icon_texture, grid_width, grid_height, axis)
+end
+
+-- Add element with icon
+function UIScrollbarContainer:AddElement(id, icon_texture, grid_width, grid_height, axis)
+    if not (id and icon_texture) then
+        return
+    end
+
+    local indx = self:FindSimilar(id)
+    if indx then
+        self.elements[indx].count = self.elements[indx].count + 1
+        self.elements[indx].ele:Update()
+    else
+        local g_w = grid_width or 1
+        local g_h = grid_height or 1
+        if g_w > self.cols then
+            g_w = self.cols
+        end
+
+        local w = self.grid_width * g_w
+        local h = self.grid_height * g_h
+        indx = self:CreateNewIndex()
+        self.elements[indx] = {}
+        self.elements[indx].id = id
+        self.elements[indx].count = 1
+        self.elements[indx].is_item = ini_sys:section_exist(id) and true or false
+        self.elements[indx].ele = UIScrollbarContainerElement(indx, self, self.frame, icon_texture, w, h, axis)
+        self.elements[indx].ele:Reset()
+        self:InsertElement(indx, g_w, g_h)
+    end
+
+    self:SendCallback("SC_On_Add", indx, id)
+    return indx
+end
+
+function UIScrollbarContainer:RemoveElement(indx, id)
+    local indx = indx or self:GetIndexByID(id)
+    if not (indx and self.elements[indx]) then
+        return
+    end
+
+    self.elements[indx].count = self.elements[indx].count - 1
+    if self.elements[indx].count > 0 then
+        self.elements[indx].ele:Update()
+        self:SendCallback("SC_On_Release", indx, id, false)                     -- Is false, because removed only one element from stack
+    else
+        self:ReleaseElement(indx)
+    end
+end
+
+function UIScrollbarContainer:ReleaseElement(indx, id)
+    local indx = indx or self:GetIndexByID(id)
+    if not (indx and self.elements[indx]) then
+        return
+    end
+
+    self:SendCallback("SC_On_Release", indx, self.elements[indx].id, true)      -- Is true, because element completely removed from container
+    local pos = self.elements[indx].ele:GetWndPos()
+    local a = self:Container_GetArea(pos.x, pos.y, self.elements[indx].ele.W, self.elements[indx].ele.H)
+
+    self:Area_OnFree(a.r, a.c, a.w, a.h)
+    self.elements[indx].ele:Show(false)
+    self.elements[indx] = nil
+
+    if self.selected == indx then
+        self.selected = nil
+    end
+    if self.hovered == indx then
+        self.hovered = nil
+    end
+    if self.hold.indx == indx then
+        self.hold.indx = nil
+        self.hold.icon:Show(false)
+    end
+    if self.m_db.indx == indx then
+        self.m_db.indx = nil
+        self.m_db.tg = 0
+    end
+end
+
+function UIScrollbarContainer:TransferElement(cont_to, indx, id)
+    local indx_from = indx or self:GetIndexByID(id)
+    if not (cont_to and indx_from and self.elements[indx_from]) then
+        return
+    end
+
+    local ele_id        = self.elements[indx_from].id
+    local ele           = self.elements[indx_from].ele
+    local icon_texture  = ele.texture
+    local grid_width    = math.floor(ele.W / self.grid_width)
+    local grid_height   = math.floor(ele.H / self.grid_height)
+    local axis          = ele.axis
+
+    local indx_to = cont_to:AddElement(ele_id, icon_texture, grid_width, grid_height, axis)
+    if indx_to then
+        self:RemoveElement(indx_from)
+        self:SendCallback("SC_On_Transfer", self.ID, cont_to.ID, indx_from, indx_to, ele_id)
+    end
+end
+
+function UIScrollbarContainer:GetID(indx)
+    return self.elements[indx] and self.elements[indx].id
+end
+
+function UIScrollbarContainer:GetIndexByID(id)
+    for indx, v in pairs(self.elements) do
+        if v.id == id then
+            return indx
+        end
+    end
+end
+
+function UIScrollbarContainer:GetElementByID(id)
+    for _,v in pairs(self.elements) do
+        if v.id == id then
+            return v.ele
+        end
+    end
+end
+
+function UIScrollbarContainer:GetElementByIndex(indx)
+    return self.elements[indx] and self.elements[indx].ele
+end
+
+function UIScrollbarContainer:GetElementCount(indx)
+    return self.elements[indx] and self.elements[indx].count
+end
+
+function UIScrollbarContainer:GetTotalElementsCount(id, indx)
+    local id = id or self:GetID(indx)
+    if not id then
+        return 0
+    end
+
+    local cnt = 0
+    for _,v in pairs(self.elements) do
+        if v.id == id then
+            cnt = cnt + v.count
+        end
+    end
+    return cnt
+end
+
+function UIScrollbarContainer:IsItemElement(indx)
+    return self.elements[indx] and self.elements[indx].is_item
+end
+
+function UIScrollbarContainer:UnselectElement(indx)
+    if (self.selected and indx and self.selected == indx) then
+        self:On_Select()
+    end
+end
+
+function UIScrollbarContainer:IsEmpty()
+    return is_empty(self.elements)
+end
+
+function UIScrollbarContainer:IterateContainer(iterator_func)
+    for indx, v in spairs(self.elements, function(t,a,b) return a < b end) do
+        if iterator_func(indx, v.id, v.ele) == true then
+            return
+        end
+    end
+end
+
+function UIScrollbarContainer:SetWndPos(vec_2)
+    self.st:SetWndPos(vec_2)
+    self:Scroll_AdjustPadPos()
+end
+
+function UIScrollbarContainer:GetWndPos()
+    return self.st:GetWndPos()
+end
+
+function UIScrollbarContainer:AddColumn()
+    self.cols = self.cols + 1
+    self.st:SetWndSize(vector2():set( self:Container_GetWidth() + self.grid_offset , self.st:GetHeight() ))
+    utils_xml.sync_size(self.st, self.scroll)
+    utils_xml.sync_size(self.scroll, self.frame)
+    self:Scroll_AdjustPadPos()
+    empty_table(self.grid)
+    self:Sort()
+end
+
+function UIScrollbarContainer:GetWidth()
+    return self.st:GetWidth()
+end
+
+function UIScrollbarContainer:GetHeight()
+    return self.st:GetHeight()
+end
+
+function UIScrollbarContainer:Show(state)
+    if state then
+        self.st:Show(true)
+        self:Scroll_AdjustPadSize()
+        self:Scroll_Enable(true)
+    else
+        self.st:Show(false)
+        self.pad:Show(false)
+    end
+end
+
+function UIScrollbarContainer:IsShown()
+    return self.st:IsShown()
+end
+
+function UIScrollbarContainer:IsCursorOverWindow()
+    return self.st:IsShown() and self.st:IsCursorOverWindow()
+end
+
+function UIScrollbarContainer:Clear()
+    for indx in pairs(self.elements) do
+        self:ReleaseElement(indx)
+    end
+    empty_table(self.grid)
+    self.indexer = nil
+    self:Reset()
+end
+
+function UIScrollbarContainer:SetScrollPos(num)
+    self:Scroll_SetPos(num)
+end
+
+function UIScrollbarContainer:GetCurrentScrollPos()
+    return self.scroll_pos
+end
+
+function UIScrollbarContainer:GetMinScrollPos()
+    return self.scroll:GetMinScrollPos()
+end
+
+function UIScrollbarContainer:GetMaxScrollPos()
+    local pos = self.scroll:GetMaxScrollPos() - self.scroll:GetHeight()
+    return pos < 0 and 0 or math.floor(pos)
+end
+
+function UIScrollbarContainer:ScrollToBegin()
+    self:Scroll_SetPos(self:GetMinScrollPos())
+end
+
+function UIScrollbarContainer:ScrollToEnd()
+    self:Scroll_SetPos(self:GetMaxScrollPos())
+end
+
+------------------------------------------
+-- UPDATING METHODS
+------------------------------------------
+function UIScrollbarContainer:Update()
+    if not self:IsShown() then
+        return
+    end
+
+    self.tg = experience_utils.GetTime()
+    self:On_Drag(nil, true)
+    self:Scroll_Update()
+
+    if self:IsCursorOverWindow() then
+        for indx, v in pairs(self.elements) do
+            if v.ele:IsCursorOverWindow() then
+                self:On_Hover(indx)
+                return
+            end
+        end
+    end
+    self:On_Hover()
+end
+
+function UIScrollbarContainer:OnKeyboard(dik, keyboard_action)
+    if not self:IsShown() then
+        return
+    end
+
+    if dik == DIK_keys.MOUSE_1 then
+        if keyboard_action == ui_events.WINDOW_KEY_PRESSED then
+            self:Scroll_OnMouse1(true)
+            self:Scroll_Enable(false)
+        elseif keyboard_action == ui_events.WINDOW_KEY_RELEASED then
+            self:Scroll_OnMouse1(false)
+            self:Scroll_Enable(true)
+        end
+    end
+
+    local indx = self.hovered
+    if indx then
+        if dik == DIK_keys.MOUSE_1 then
+            if keyboard_action == ui_events.WINDOW_KEY_PRESSED then
+                self:On_Drag(indx)
+
+            elseif keyboard_action == ui_events.WINDOW_KEY_RELEASED then
+                self:On_Drag()
+                self:On_Mouse1(indx)
+            end
+        elseif dik == DIK_keys.MOUSE_2 then
+            if keyboard_action == ui_events.WINDOW_KEY_RELEASED then
+                self:On_Mouse2(indx)
+            end
+        end
+    elseif (dik == DIK_keys.MOUSE_1 and keyboard_action == ui_events.WINDOW_KEY_RELEASED) then
+        self:On_Drag()
+    end
+
+    if dik == DIK_keys.DIK_LSHIFT then
+        self.s_pd.scroll_power = keyboard_action == ui_events.WINDOW_KEY_PRESSED and self.s_pd.power_up or 1
+    end
+end
+-------------------------------------------------------------------------------------------------
+
+
+-------------------------------------------------------------------------------------------------
+-- Technical Methods
+-------------------------------------------------------------------------------------------------
+function UIScrollbarContainer:On_Drag(indx, update_only)
+    if not self.can_drag then
+        return
+    end
+
+    if update_only then
+        if self.hold.indx then
+            if self.hold.icon:IsShown() then
+                local pos = self.owner:GetWndPos()
+                local cpos = GetCursorPosition()
+                local w = self.hold.w / 2
+                local h = self.hold.h / 2
+                self.hold.icon:SetWndPos(vector2():set( cpos.x - pos.x - w , cpos.y - pos.y - h ))
+
+            elseif self.tg > self.hold.tg then
+                if not (self:SendCallback("SC_On_DragDrop", self.hold.indx, self:GetID(self.hold.indx)) == true) then
+                    self:On_Drag()
+                    return
+                end
+
+                self.hold.icon:InitTexture(self.hold.texture)
+                self.hold.icon:SetWndSize(vector2():set( self.hold.w , self.hold.h ))
+                self.hold.icon:SetTextureColor(self.clr.drag)
+                if self.hold.axis then
+                    self.hold.icon:SetTextureRect(Frect():set(self.hold.axis.x1, self.hold.axis.y1, self.hold.axis.x2, self.hold.axis.y2))
+                end
+                self.hold.icon:Show(true)
+            end
+        end
+        return
+    end
+
+    if not indx then
+        if self.hold.indx then
+            self.hold.icon:Show(false)
+            self.hold.indx = nil
+        end
+        return
+    end
+
+    if self.hold.indx ~= indx then
+        local ele = self:GetElementByIndex(indx)
+        if ele then
+            self.hold.tg = self.tg + 150
+            self.hold.indx = indx
+            self.hold.texture = ele.texture
+            self.hold.w = ele.W
+            self.hold.h = ele.H
+            self.hold.axis = ele.axis
+            self.hold.icon:Show(false)
+        end
+        return
+    end
+end
+
+function UIScrollbarContainer:On_Hover(indx)
+    if not indx then
+        if self.hovered then
+            local ele = self:GetElementByIndex(self.hovered)
+            if (ele and self.hovered ~= self.selected) then
+                ele:ShowHighlight(false)
+            end
+            self.hovered = nil
+        end
+        return
+    end
+
+    if self.selected == indx then
+        if self.hovered ~= indx then
+            self:On_Hover()
+            self.hovered = indx
+            self:SendCallback("SC_On_Hover", indx, self:GetID(indx))
+        end
+        return
+    end
+
+    if self.hovered ~= indx then
+        self:On_Hover()
+        local ele = self:GetElementByIndex(indx)
+        if ele then
+            self.hovered = indx
+            ele:ShowHighlight(true)
+            self:SendCallback("SC_On_Hover", indx, self:GetID(indx))
+        end
+    end
+end
+
+function UIScrollbarContainer:On_Select(indx)
+    if not self.can_select or not indx then
+        if self.selected then
+            local ele = self:GetElementByIndex(self.selected)
+            if ele then
+                ele:ShowHighlight(false)
+            end
+            self.selected = nil
+        end
+        return
+    end
+
+    local ele = self:GetElementByIndex(indx)
+    if not ele then
+        return
+    end
+
+    if self.selected ~= indx then
+        self:On_Select()
+        self.selected = indx
+        ele:ShowHighlight(true, "pick")
+        self:SendCallback("SC_On_Select", indx, self:GetID(indx))
+    else
+        if self:SendCallback("SC_On_Unselect", indx, self:GetID(indx)) == true then       -- Allow unselect element
+            ele:ShowHighlight(true)
+            self.selected = nil
+        end
+    end
+end
+
+function UIScrollbarContainer:On_Mouse1(indx)
+    if (self.m_db.indx == indx and self.tg - self.m_db.tg < 300) then
+        if self:SendCallback("SC_On_Mouse1_DB", indx, self:GetID(indx)) == true then      -- Continue double clicking
+            self.m_db.tg = self.tg
+            return
+        end
+    end
+
+    self.m_db.indx = indx
+    self.m_db.tg = self.tg
+    self:On_Select(indx)
+    self:SendCallback("SC_On_Mouse1", indx, self:GetID(indx))
+end
+
+function UIScrollbarContainer:On_Mouse2(indx)
+    if self:SendCallback("SC_On_Mouse2", indx, self:GetID(indx)) == true then             -- Allow select element
+        self:On_Select(indx)
+    end
+end
+
+function UIScrollbarContainer:FindSimilar(id)
+    if not self.can_stack then
+        return
+    end
+    return self:GetIndexByID(id)
+end
+
+function UIScrollbarContainer:InsertElement(indx, g_w, g_h)
+    local cols = self.cols + (g_w - 1)
+    for row=1, #self.grid do
+        for col=1, cols do
+            if self:Area_IsFree(row, col, g_w, g_h) then
+                self:SetElementPosition(indx, row, col, g_w, g_h)
+                return
+            end
+        end
+    end
+    self:CreateNewRow()
+    self:InsertElement(indx, g_w, g_h)
+end
+
+function UIScrollbarContainer:SetElementPosition(indx, r, c, w, h)
+    self:Area_OnCapture(r, c, w, h)
+    local pos = self:Container_GetPosition(r, c)
+    self.elements[indx].ele:SetWndPos(vector2():set( pos.x , pos.y ))
+end
+
+function UIScrollbarContainer:Scroll_OnMouse1(is_pressed)
+    if not (self.pad:IsShown() and self.pad:IsCursorOverWindow()) then
+        if not is_pressed and self.s_pd.hold then
+            self:On_Hover()
+            self:On_Drag()
+            self.s_pd.hold = false
+        end
+        return
+    end
+
+    self:On_Hover()
+    self:On_Drag()
+    if is_pressed then
+        self.s_pd.offset = GetCursorPosition().y
+        self.s_pd.start = self.scroll_pos
+        self.s_pd.hold = true
+    else
+        self.s_pd.hold = false
+    end
+end
+
+function UIScrollbarContainer:Scroll_Update()
+    if self.s_pd.hold then
+        local s_pos = self.s_pd.start + ((GetCursorPosition().y - self.s_pd.offset) * self.s_pd.power)
+        if self.scroll_pos ~= s_pos then
+            self:Scroll_SetPos(s_pos)
+        end
+        return
+    end
+
+    local s_pos = self.scroll:GetCurrentScrollPos()
+    if self.scroll_pos ~= s_pos then
+        local offset = (self.grid_height + self.grid_offset) * self.s_pd.scroll_power
+        if s_pos > self.scroll_pos then
+            self:Scroll_SetPos(self.scroll_pos + offset)
+        else
+            self:Scroll_SetPos(self.scroll_pos - offset)
+        end
+    end
+end
+
+function UIScrollbarContainer:Scroll_Reinit(keep_scroll_pos)
+    self.scroll:Clear()
+    self.frame:SetWndSize(vector2():set( self.frame:GetWidth() , self:Container_GetHeight() + self.grid_height + self.grid_offset ))
+    self.scroll:AddWindow(self.frame, true)
+    self.frame:SetAutoDelete(false)
+
+    if keep_scroll_pos then
+        self:Scroll_SetPos(self.scroll_pos, true)
+    else
+        self:Scroll_SetPos(0, true)
+    end
+    self:Scroll_AdjustPadSize()
+end
+
+function UIScrollbarContainer:Scroll_SetPos(num, force)
+    local Y = num or self.scroll_pos
+    if self.frame:GetHeight() <= self.scroll:GetHeight() then
+        Y = 0
+    end
+
+    if force then
+        self.scroll:SetScrollPos(1)
+    end
+
+    Y = clamp(math.floor(Y), self:GetMinScrollPos(), self:GetMaxScrollPos())
+    self.scroll:SetScrollPos(Y)
+    self.scroll_pos = Y
+
+    if self.pad:IsShown() then
+        self:Scroll_AdjustPadPos()
+    end
+end
+
+function UIScrollbarContainer:Scroll_AdjustPadPos()
+    local p = self.st:GetWndPos()
+    self.pad:SetWndPos(vector2():set( p.x + self.st:GetWidth() , p.y + self.scroll_pos / self.s_pd.power ))
+end
+
+function UIScrollbarContainer:Scroll_AdjustPadSize()
+    local h_view = self.scroll:GetHeight()
+    local h_max = h_view + self:GetMaxScrollPos()
+    if not self.show_scroll or h_max <= h_view + 1 then
+        self.pad:Show(false)
+        return
+    end
+
+    local h_pad =  h_view * (h_view / h_max)
+    self.s_pd.power = (h_max - h_view) / (h_view - h_pad)
+    self.pad:SetWndSize(vector2():set( 5 , math.floor(h_pad) ))
+    self:Scroll_AdjustPadPos()
+    self.pad:Show(true)
+end
+
+function UIScrollbarContainer:Scroll_Enable(state)
+    self.scroll:Enable(state)
+end
+
+function UIScrollbarContainer:Container_GetArea(x, y, width, height)
+    local g_w = math.floor( width / self.grid_width )
+    local g_h = math.floor( height / self.grid_height )
+    local row = math.floor( ((y - self.grid_offset) / self.grid_height) + 1 )
+    local col = math.floor( ((x - self.grid_offset) / self.grid_width) + 1 )
+    return { r=row, c=col, w=g_w, h=g_h }
+end
+
+function UIScrollbarContainer:Container_GetPosition(row, col)
+    local x = self.grid_width * (col-1) + self.grid_offset
+    local y = self.grid_height * (row-1) + self.grid_offset
+    return { x=x, y=y }
+end
+
+function UIScrollbarContainer:Container_GetWidth()
+    return self.grid_width * self.cols + self.grid_offset
+end
+
+function UIScrollbarContainer:Container_GetHeight()
+    return self.grid_height * #self.grid + self.grid_offset
+end
+
+function UIScrollbarContainer:Area_IsFree(r, c, w, h)
+    for row=r, r+(h-1) do
+        for col=c, c+(w-1) do
+            if not (self.grid[row] and self.grid[row][col] == true) then
+                return false
+            end
+        end
+    end
+    return true
+end
+
+function UIScrollbarContainer:Area_OnCapture(r, c, w, h)
+    for row=r, r+(h-1) do
+        for col=c, c+(w-1) do
+            self.grid[row][col] = false
+        end
+    end
+end
+
+function UIScrollbarContainer:Area_OnFree(r, c, w, h)
+    for row=r, r+(h-1) do
+        for col=c, c+(w-1) do
+            self.grid[row][col] = true
+        end
+    end
+end
+
+function UIScrollbarContainer:Area_OnClear()
+    for row=1, #self.grid do
+        for col=1, self.cols do
+            self.grid[row][col] = true
+        end
+    end
+end
+
+function UIScrollbarContainer:CreateNewIndex()
+    self.indexer = self.indexer and self.indexer + 1 or 0
+    return self.indexer
+end
+
+function UIScrollbarContainer:CreateNewRow()
+    local row = #self.grid + 1
+    self.grid[row] = {}
+    for col=1, self.cols do
+        self.grid[row][col] = true
+    end
+    self:Scroll_Reinit(true)
+end
+
+function UIScrollbarContainer:SetColumns()
+    self.cols = math.floor((self.frame:GetWidth() / (self.grid_width + self.grid_offset)) + 0.5)
+end
+
+function UIScrollbarContainer:SendCallback(func_name, ...)
+    if (self.owner[func_name] and not self.disable_callback[func_name]) then
+        return self.owner[func_name](self.owner, self.ID, ...)
+    end
+end
+
+----------------------------------------------------
+-- Class "UIScrollbarContainerElement"
+----------------------------------------------------
+class "UIScrollbarContainerElement"
+function UIScrollbarContainerElement:__init(id, container, ele_base, icon_texture, width, height, axis)
+    self.ID             = id
+    self.container      = container
+    self.clr            = container.clr
+    self.xml            = container.xml
+    self.path           = container.path
+    self.texture        = icon_texture
+    self.W              = width
+    self.H              = height
+    self.axis           = axis
+    self.hidden         = false
+    self.ind_state      = false
+
+    self:InitControls(ele_base)
+    self:InitIcon()
+end
+
+function UIScrollbarContainerElement:InitControls(ele_base)
+    local xml = self.xml
+    local path = self.path
+
+    self.element                        = xml:InitStatic(path .. ":element:st", ele_base)
+    self.element:SetWndPos(vector2():set( 0 , 0 ))
+    self.element:SetWndSize(vector2():set( self.W , self.H ))
+
+    self.highlight                      = xml:InitStatic(path .. ":element:highlight", self.element)
+    utils_xml.sync_element(self.highlight, self.element)
+    self.highlight:SetStretchTexture(true)
+    self.highlight:Show(false)
+
+    self.shadow                         = xml:InitStatic(path .. ":element:st", self.element)
+    self.shadow:SetWndPos(vector2():set( 1 , 2 ))
+    utils_xml.sync_size(self.element, self.shadow)
+    self.shadow:SetStretchTexture(true)
+    self.shadow:Show(true)
+
+    self.icon                           = xml:InitStatic(path .. ":element:st", self.element)
+    utils_xml.sync_element(self.icon, self.element)
+    self.icon:SetStretchTexture(true)
+    self.icon:Show(true)
+
+    self.counter                        = xml:InitStatic(path .. ":element:counter", self.element)
+    self.counter:TextControl():SetText("")
+    self.counter:Show(false)
+
+    self.shadow_text                    = xml:InitTextWnd(path .. ":element:custom_text", self.element)
+    self.text                           = xml:InitTextWnd(path .. ":element:custom_text", self.element)
+    utils_xml.sync_element(self.shadow_text, self.element)
+    utils_xml.sync_element(self.text, self.element)
+    local pos = self.text:GetWndPos()
+    self.shadow_text:SetWndPos(vector2():set( pos.x + 1 , pos.y + 1 ))
+    self.shadow_text:SetTextColor(self.clr.black)
+    self.shadow_text:SetText("")
+    self.text:SetText("")
+    self.shadow_text:Show(true)
+    self.text:Show(true)
+
+    self.indicator                      = xml:InitStatic(path .. ":element:indicator", self.element)
+    self.indicator:SetWndSize(vector2():set( self.indicator:GetWidth() * utils_xml.screen_ratio() , self.indicator:GetHeight() ))
+    self.indicator:Show(false)
+end
+
+function UIScrollbarContainerElement:InitIcon()
+    self.shadow:InitTexture(self.texture)
+    self.icon:InitTexture(self.texture)
+    self.shadow:SetTextureColor(self.clr.shadow)
+    if self.axis then
+        self.shadow:SetTextureRect(Frect():set(self.axis.x1, self.axis.y1, self.axis.x2, self.axis.y2))
+        self.icon:SetTextureRect(Frect():set(self.axis.x1, self.axis.y1, self.axis.x2, self.axis.y2))
+    end
+end
+
+function UIScrollbarContainerElement:Reset()
+    self:Show(true)
+    self:Hide(false)
+    self:ShowHighlight(false)
+end
+
+function UIScrollbarContainerElement:Update()
+    if not self:IsShown() or self:IsHidden() then
+        return
+    end
+
+    self:UpdateCounter()
+end
+
+function UIScrollbarContainerElement:UpdateCounter()
+    local cnt = self.container:GetElementCount(self.ID)
+    if not (cnt and cnt > 1) then
+        self.counter:Show(false)
+        return
+    end
+    self.counter:Show(true)
+    self.counter:TextControl():SetText("x" .. cnt)
+end
+
+function UIScrollbarContainerElement:ShowHighlight(state, color_id)
+    if state then
+        self.highlight:Show(true)
+        self.highlight:SetTextureColor(color_id and self.clr[color_id] or self.clr.def)
+    else
+        self.highlight:Show(false)
+    end
+end
+
+function UIScrollbarContainerElement:SetText(text)
+    self.shadow_text:SetText(text)
+    self.text:SetText(text)
+
+    if not self:IsShown() or self:IsHidden() then
+        self.shadow_text:Show(false)
+        self.text:Show(false)
+        return
+    end
+    self.shadow_text:Show(true)
+    self.text:Show(true)
+end
+
+function UIScrollbarContainerElement:GetText()
+    return self.text:GetText()
+end
+
+function UIScrollbarContainerElement:SetTextColor(clr)
+    self.text:SetTextColor(clr)
+end
+
+function UIScrollbarContainerElement:GetTextColor()
+    return self.text:GetTextColor()
+end
+
+function UIScrollbarContainerElement:Show(state)
+    if state then
+        self.element:Show(true)
+    else
+        self.element:Show(false)
+    end
+end
+
+function UIScrollbarContainerElement:ShowIndicator(state)
+    if state then
+        self.ind_state = true
+        if not self:IsHidden() then
+            self.indicator:Show(true)
+        end
+    else
+        self.ind_state = false
+        self.indicator:Show(false)
+    end
+end
+
+function UIScrollbarContainerElement:SetIndicatorColor(argb_color)
+    self.indicator:SetTextureColor(argb_color)
+end
+
+function UIScrollbarContainerElement:GetIndicatorColor()
+    return self.indicator:GetTextureColor()
+end
+
+function UIScrollbarContainerElement:SetIndicatorAlign(v_align, h_align)
+    if not (v_align and h_align) then
+        return
+    end
+
+    local x,y
+    if v_align == "l" then
+        x = 0
+    elseif v_align == "c" then
+        x = self.element:GetWidth() / 2 - self.indicator:GetWidth() / 2
+    elseif v_align == "r" then
+        x = self.element:GetWidth() - self.indicator:GetWidth()
+    end
+
+    if h_align == "t" then
+        y = 0
+    elseif h_align == "c" then
+        y = self.element:GetHeight() / 2 - self.indicator:GetHeight() / 2
+    elseif h_align == "b" then
+        y = self.element:GetHeight() - self.indicator:GetHeight()
+    end
+
+    if (x and y) then
+        self.indicator:SetWndPos(vector2():set(x,y))
+    end
+end
+
+function UIScrollbarContainerElement:Hide(state)
+    if state then
+        self.hidden = true
+        self.shadow:SetTextureColor(self.clr.hide_shadow)
+        self.icon:SetTextureColor(self.clr.hide)
+        self.counter:Show(false)
+        self.shadow_text:Show(false)
+        self.text:Show(false)
+        self.indicator:Show(false)
+    else
+        self.hidden = false
+        self.shadow:SetTextureColor(self.clr.shadow)
+        self.icon:SetTextureColor(self.clr.def)
+        self:UpdateCounter()
+        self.shadow_text:Show(true)
+        self.text:Show(true)
+        if self.ind_state then
+            self.indicator:Show(true)
+        end
+    end
+end
+
+function UIScrollbarContainerElement:IsShown()
+    return self.element:IsShown()
+end
+
+function UIScrollbarContainerElement:IsHidden()
+    return self.hidden
+end
+
+function UIScrollbarContainerElement:IsCursorOverWindow()
+    return self.element:IsShown() and self.element:IsCursorOverWindow()
+end
+
+function UIScrollbarContainerElement:SetWndPos(vec_2)
+    self.element:SetWndPos(vec_2)
+end
+
+function UIScrollbarContainerElement:GetWndPos()
+    return self.element:GetWndPos()
+end

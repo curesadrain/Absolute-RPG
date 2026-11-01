@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='windows-1251'?>
+<string_table>
+  <string id="st_perk_lone_stalker">
+    <text>Lone Stalker</text>
+  </string>
+  <string id="st_perk_lone_stalker_desc">
+    <text>No one covers your withdrawal or shares the weight of the pack. You plan every route and contact around your own resources, but on a solitary patrol the Zone's whispers sound uncomfortably close.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Without companions: +30 kg carry weight, 10% less incoming non-psy damage, and 10% more psy damage taken. All three effects turn off when a companion joins.</text>
+  </string>
+  <string id="st_perk_lone_stalker_desc_1">
+    <text>No one covers your withdrawal or shares the weight of the pack. You plan every route and contact around your own resources, but on a solitary patrol the Zone's whispers sound uncomfortably close.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Without companions: +30 kg carry weight, 10% less incoming non-psy damage, and 10% more psy damage taken. All three effects turn off when a companion joins.</text>
+  </string>
+  <string id="st_perk_observer">
+    <text>Observer</text>
+  </string>
+  <string id="st_perk_observer_desc">
+    <text>A patch, a weapon profile and the way someone holds their distance: you build the picture before the report is finished. In the Zone, correct identification can matter more than the first shot.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Reduces Immersive Identification scan time by 10/20/30/40/50% per rank, including WD scanner identification. Range, visibility, power and module requirements remain unchanged. Requires the optional Immersive Identification integration component from this archive.\n \n%c[d_red]REQUIRES IMMERSIVE IDENTIFICATION AND THE INTEGRATION COMPONENT FROM THIS ARCHIVE.%c[ui_gray_2]</text>
+  </string>
+  <string id="st_perk_observer_desc_1">
+    <text>A patch, a weapon profile and the way someone holds their distance: you build the picture before the report is finished. In the Zone, correct identification can matter more than the first shot.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Current rank: scan time -10%.\n \nReduces Immersive Identification scan time by 10/20/30/40/50% per rank, including WD scanner identification. Range, visibility, power and module requirements remain unchanged. Requires the optional Immersive Identification integration component from this archive.\n \n%c[d_red]REQUIRES IMMERSIVE IDENTIFICATION AND THE INTEGRATION COMPONENT FROM THIS ARCHIVE.%c[ui_gray_2]</text>
+  </string>
+  <string id="st_perk_observer_desc_2">
+    <text>A patch, a weapon profile and the way someone holds their distance: you build the picture before the report is finished. In the Zone, correct identification can matter more than the first shot.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Current rank: scan time -20%.\n \nReduces Immersive Identification scan time by 10/20/30/40/50% per rank, including WD scanner identification. Range, visibility, power and module requirements remain unchanged. Requires the optional Immersive Identification integration component from this archive.\n \n%c[d_red]REQUIRES IMMERSIVE IDENTIFICATION AND THE INTEGRATION COMPONENT FROM THIS ARCHIVE.%c[ui_gray_2]</text>
+  </string>
+  <string id="st_perk_observer_desc_3">
+    <text>A patch, a weapon profile and the way someone holds their distance: you build the picture before the report is finished. In the Zone, correct identification can matter more than the first shot.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Current rank: scan time -30%.\n \nReduces Immersive Identification scan time by 10/20/30/40/50% per rank, including WD scanner identification. Range, visibility, power and module requirements remain unchanged. Requires the optional Immersive Identification integration component from this archive.\n \n%c[d_red]REQUIRES IMMERSIVE IDENTIFICATION AND THE INTEGRATION COMPONENT FROM THIS ARCHIVE.%c[ui_gray_2]</text>
+  </string>
+  <string id="st_perk_observer_desc_4">
+    <text>A patch, a weapon profile and the way someone holds their distance: you build the picture before the report is finished. In the Zone, correct identification can matter more than the first shot.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Current rank: scan time -40%.\n \nReduces Immersive Identification scan time by 10/20/30/40/50% per rank, including WD scanner identification. Range, visibility, power and module requirements remain unchanged. Requires the optional Immersive Identification integration component from this archive.\n \n%c[d_red]REQUIRES IMMERSIVE IDENTIFICATION AND THE INTEGRATION COMPONENT FROM THIS ARCHIVE.%c[ui_gray_2]</text>
+  </string>
+  <string id="st_perk_observer_desc_5">
+    <text>A patch, a weapon profile and the way someone holds their distance: you build the picture before the report is finished. In the Zone, correct identification can matter more than the first shot.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Current rank: scan time -50%.\n \nReduces Immersive Identification scan time by 10/20/30/40/50% per rank, including WD scanner identification. Range, visibility, power and module requirements remain unchanged. Requires the optional Immersive Identification integration component from this archive.\n \n%c[d_red]REQUIRES IMMERSIVE IDENTIFICATION AND THE INTEGRATION COMPONENT FROM THIS ARCHIVE.%c[ui_gray_2]</text>
+  </string>
+</string_table>

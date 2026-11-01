@@ -1,0 +1,121 @@
+-- Neat Freak: protect actual OPO components, including a helmet fitted into the outfit.
+-- Ranks 1/2/3: component floors 45/50/60%; rank 4 includes helmets;
+-- rank 5 refunds half the actual condition loss. Already damaged parts are not repaired.
+local FLOOR = { [0] = 0, 45, 50, 60, 60, 60 }
+local OUTFIT_SLOT, HELMET_SLOT = 7, 12
+local last = {}
+local parts_wrapper = nil
+local in_degrade = false
+local started = false
+
+local function rank()
+    return rpg_gamma_patch.lvl("perk_neat_freak")
+end
+
+local function protect(previous, current, floor, slow)
+    if current >= previous then return current end
+    local result = current
+    if slow then result = previous - (previous - current) * 0.5 end
+    if previous >= floor and result < floor then result = floor end
+    return math.min(previous, result)
+end
+
+local function is_helmet_part(opo, section)
+    return opo.is_helmet and opo.is_helmet(section)
+        or opo.rank_component and opo.rank_component(section) == 1
+end
+
+local function snapshot_parts(opo, parts)
+    local snapshot = {}
+    for section, value in pairs(parts) do
+        if type(value) == "number" and opo.is_part(section) then
+            snapshot[section] = value
+        end
+    end
+    return snapshot
+end
+
+local function correct_parts(opo, before, parts, level)
+    local changed = false
+    local floor = FLOOR[level] or 0
+    for section, previous in pairs(before) do
+        local current = parts[section]
+        if type(current) == "number" and (level >= 4 or not is_helmet_part(opo, section)) then
+            local result = protect(previous, current, floor, level >= 5)
+            if result > current then
+                parts[section] = result
+                changed = true
+            end
+        end
+    end
+    return changed
+end
+
+local function pack(...)
+    return { n = select("#", ...), ... }
+end
+
+local function hook_parts()
+    local opo = arti_outfits
+    if not opo or type(opo.degrade_parts) ~= "function" or type(opo.get_parts) ~= "function"
+        or type(opo.is_part) ~= "function" or type(opo.flush_parts) ~= "function" then return end
+    if opo.degrade_parts == parts_wrapper then return end
+    local original = opo.degrade_parts
+    parts_wrapper = function(...)
+        local level = rank()
+        -- Prevent two applications when another addon chains our earlier wrapper.
+        if in_degrade or level <= 0 then return original(...) end
+        local actor = db.actor
+        local outfit = actor and actor:item_in_slot(OUTFIT_SLOT)
+        local parts = outfit and opo.get_parts(outfit)
+        if type(parts) ~= "table" then return original(...) end
+        local before = snapshot_parts(opo, parts)
+        in_degrade = true
+        local values = pack(pcall(original, ...))
+        in_degrade = false
+        if not values[1] then error(values[2]) end
+        -- get_parts returns the same mutable cache used by degrade_parts.
+        -- Updating only saved data would be overwritten by the next flush.
+        if correct_parts(opo, before, parts, level) then opo.flush_parts() end
+        return unpack(values, 2, values.n)
+    end
+    opo.degrade_parts = parts_wrapper
+end
+
+local function process_condition(slot, item, floor, slow)
+    if not item then last[slot] = nil; return end
+    local id, current = item:id(), item:condition()
+    local record = last[slot]
+    if not record or record.id ~= id then
+        last[slot] = { id = id, condition = current }
+        return
+    end
+    local result = protect(record.condition, current, floor, slow)
+    -- Do not ignore small losses: doing so makes slow wear bypass the floor.
+    if result > current then item:set_condition(result) end
+    record.condition = result
+end
+
+local function actor_on_update()
+    hook_parts()
+    local actor = db.actor
+    if not actor or not actor:alive() then last = {}; return end
+    local level = rank()
+    if level <= 0 then last = {}; return end
+    local floor = (FLOOR[level] or 0) * 0.01
+    process_condition(OUTFIT_SLOT, actor:item_in_slot(OUTFIT_SLOT), floor, level >= 5)
+    if level >= 4 then
+        process_condition(HELMET_SLOT, actor:item_in_slot(HELMET_SLOT), floor, level >= 5)
+    else
+        last[HELMET_SLOT] = nil
+    end
+end
+
+function on_game_start()
+    if started then return end
+    started = true
+    RegisterScriptCallback("actor_on_update", actor_on_update)
+    -- Reset condition samples when rank changes, so old wear is not counted twice.
+    rpg_gamma_patch.listen("perk_neat_freak", function() last = {}; hook_parts(); actor_on_update() end)
+    hook_parts()
+end

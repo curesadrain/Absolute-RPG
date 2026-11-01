@@ -1,0 +1,17 @@
+-- Inner Pockets: +1 (level 1) / +2 (level 2) artefact belt slots.
+-- Only applies while an outfit is worn (outfit-less belt width stays 0), absolute per level.
+local SLOTS = { [0] = 0, 1, 2 }
+
+local function on_belt_size_get(count, flags)
+	local extra = SLOTS[rpg_gamma_patch.lvl("perk_inner_pockets")] or 0
+	if extra <= 0 then return end
+	local base = flags.ret_value or count or 0
+	if base > 0 then
+		flags.ret_value = base + extra
+	end
+end
+
+function on_game_start()
+	RegisterScriptCallback("on_artefact_count_get", on_belt_size_get)
+	RegisterScriptCallback("on_belt_size_get", on_belt_size_get)
+end

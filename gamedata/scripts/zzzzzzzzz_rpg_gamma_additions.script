@@ -1,0 +1,129 @@
+-- RPG GAMMA additions. Levels are always read from Experience Framework,
+-- so buying, respec, prestige and save loading cannot leave stale bonuses.
+local SCAN_TIME = {[0] = 1, 0.90, 0.80, 0.70, 0.60, 0.50}
+local WEIGHT_KEY = "rpg_gamma_lone_stalker"
+local weight_applied = nil
+local psy_depth = 0
+local installed = false
+local psy_handler_installed = false
+
+local function pack(...) return {n = select("#", ...), ...} end
+
+-- game_object userdata has no __eq binding. Compare numeric network IDs,
+-- including when Lua receives different wrappers for the same actor.
+local function is_actor(object)
+    return object and db.actor and object:id() == db.actor:id() or false
+end
+
+function perk_level(id)
+    local data = experience_core and experience_core.GetSkillData(id)
+    return data and data.enable and data.curr_level or 0
+end
+
+function lone_active()
+    if perk_level("perk_lone_stalker") < 1 then return false end
+    -- The canonical Anomaly API excludes hostages and includes the actual
+    -- registered companion squad members, even when they are not nearby.
+    if not (axr_companions and axr_companions.list_actor_squad_by_id) then return false end
+    local companions = axr_companions.list_actor_squad_by_id()
+    return type(companions) == "table" and next(companions) == nil
+end
+
+function identification_time_multiplier()
+    return SCAN_TIME[perk_level("perk_observer")] or 1
+end
+
+function update_weight()
+    if not (db.actor and db.actor:alive()) then return end
+    local active = lone_active()
+    if active == weight_applied then return end
+    if active then
+        weight.add_weight(WEIGHT_KEY, 30, true)
+    else
+        weight.remove_weight(WEIGHT_KEY)
+    end
+    weight_applied = active
+end
+
+function on_skill_update(id)
+    if id == "perk_lone_stalker" then update_weight() end
+end
+
+local function install_damage()
+    -- GAMMA's psy rework recalculates controller attacks and consumes hit.power.
+    -- Measure the final psy-health loss AFTER its own protections. Multiplying
+    -- hit.power before that handler would be discarded for controller attacks.
+    local psy = arszi_psy
+    if psy and type(psy.get_psy_health) == "function" and type(psy.change_psy_health) == "function" then
+        local raw_change = psy.change_psy_health
+        local function psy_call(original, ...)
+            local outer = psy_depth == 0
+            local before = outer and lone_active() and psy.get_psy_health() or nil
+            psy_depth = psy_depth + 1
+            local results = pack(pcall(original, ...))
+            psy_depth = psy_depth - 1
+            if not results[1] then error(results[2], 0) end
+            if before then
+                local lost = before - psy.get_psy_health()
+                if lost > 0 then raw_change(-lost * 0.10) end
+            end
+            return unpack(results, 2, results.n)
+        end
+        psy.change_psy_health = function(...) return psy_call(raw_change, ...) end
+        if type(psy.actor_on_before_hit) == "function" then
+            local original = psy.actor_on_before_hit
+            psy.actor_on_before_hit = function(...) return psy_call(original, ...) end
+            psy_handler_installed = true
+        end
+        -- Includes negative health changes from the psy rework's own update,
+        -- while positive regeneration and nested damage APIs remain unmodified.
+        if type(psy.actor_on_update) == "function" then
+            local original = psy.actor_on_update
+            psy.actor_on_update = function(...) return psy_call(original, ...) end
+            -- The original function was already registered by arszi_psy.
+            -- Replace that callback too; assigning a table field alone does
+            -- not replace the function pointer held by the callback registry.
+            UnregisterScriptCallback("actor_on_update", original)
+            RegisterScriptCallback("actor_on_update", psy.actor_on_update)
+        end
+    end
+    if type(_G.CActor__BeforeHitCallback) == "function" then
+        local original = _G.CActor__BeforeHitCallback
+        _G.CActor__BeforeHitCallback = function(actor, damage, bone, ...)
+            if is_actor(actor) and damage and damage.power > 0 and lone_active() then
+                local psy_type = hit and hit.telepatic or 4
+                if damage.type == psy_type then
+                    if not psy_handler_installed then damage.power = damage.power * 1.10 end
+                else
+                    damage.power = damage.power * 0.90
+                end
+            end
+            return original(actor, damage, bone, ...)
+        end
+    end
+end
+
+function on_first_update()
+    weight_applied = nil
+    update_weight()
+    -- Always visible, including saves where an older release hid this perk.
+    if experience_utils and experience_utils.SkillExist("perk_observer") then
+        experience_utils.EnableSkill("perk_observer")
+    end
+end
+
+function on_destroy()
+    if db.actor then weight.remove_weight(WEIGHT_KEY) end
+    weight_applied = nil
+    psy_depth = 0
+end
+
+function on_game_start()
+    if installed then return end
+    installed = true
+    install_damage()
+    RegisterScriptCallback("actor_on_first_update", on_first_update)
+    RegisterScriptCallback("actor_on_update", update_weight)
+    RegisterScriptCallback("experience_skill_on_update", on_skill_update)
+    RegisterScriptCallback("actor_on_net_destroy", on_destroy)
+end

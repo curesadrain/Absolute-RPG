@@ -1,0 +1,152 @@
+-- Quick Aim: -10/-20/-30% transition time, relative to other handling effects.
+-- Only the actor's active firearm is modified. Runtime engine values are not saved.
+local TIME_FACTOR = { [0] = 1, 0.90, 0.80, 0.70 }
+local tracked = nil
+local wrapped_ergonomics = nil
+local animation_registered = false
+local started = false
+
+local function factor()
+    return TIME_FACTOR[rpg_gamma_patch.lvl("perk_quick_aim")] or 1
+end
+
+local function near(a, b)
+    return type(a) == "number" and type(b) == "number"
+        and math.abs(a - b) <= 0.000001 * math.max(1, math.abs(a), math.abs(b))
+end
+
+local function firearm(obj)
+    return obj and IsWeapon(obj) and not IsMelee(obj)
+end
+
+local function read_time(obj)
+    if not firearm(obj) then return end
+    local ok, weapon, value = pcall(function()
+        local w = obj:cast_Weapon()
+        if not w then return end
+        return w, w:GetZoomRotateTime()
+    end)
+    if ok and weapon and type(value) == "number"
+        and value > 0 and value < math.huge then
+        return weapon, value
+    end
+end
+
+local function set_time(weapon, value)
+    return pcall(function() weapon:SetZoomRotateTime(value) end)
+end
+
+local function restore()
+    local saved = tracked
+    tracked = nil
+    if not saved then return end
+    local obj = level.object_by_id(saved.id)
+    if not obj or obj:section() ~= saved.section then return end
+    local weapon, current = read_time(obj)
+    -- Do not overwrite a new value supplied by another mod.
+    if weapon and near(current, saved.applied) then
+        set_time(weapon, saved.base)
+    end
+end
+
+local function apply()
+    local actor = db.actor
+    local obj = actor and actor:alive() and actor:active_item()
+    if not firearm(obj) then restore(); return end
+    if tracked and (tracked.id ~= obj:id() or tracked.section ~= obj:section()) then
+        restore()
+    end
+    local weapon, current = read_time(obj)
+    if not weapon then restore(); return end
+    local base = current
+    if tracked and near(current, tracked.applied) then base = tracked.base end
+    local f = factor()
+    if f == 1 then
+        restore()
+        return
+    end
+    local target = base * f
+    if not near(current, target) and not set_time(weapon, target) then return end
+    tracked = { id = obj:id(), section = obj:section(), base = base, applied = target }
+end
+
+local function pack(...)
+    return { n = select("#", ...), ... }
+end
+
+local function hook_ergonomics()
+    local ergonomics = zz_handling_as_ergonomics
+    if not ergonomics or type(ergonomics.update_ergonomics) ~= "function" then return end
+    if ergonomics.update_ergonomics == wrapped_ergonomics then return end
+    local original = ergonomics.update_ergonomics
+    wrapped_ergonomics = function(...)
+        -- Give handling its own baseline, then apply our factor to its result.
+        restore()
+        local values = pack(original(...))
+        apply()
+        return unpack(values, 1, values.n)
+    end
+    ergonomics.update_ergonomics = wrapped_ergonomics
+end
+
+local function transition(name)
+    return type(name) == "string" and (
+        name == "anm_idle2aim" or name:match("^anm_idle2aim_")
+        or name == "anm_aim2idle" or name:match("^anm_aim2idle_"))
+end
+
+local function mutate_animation(anim, obj)
+    if not anim or not firearm(obj) or not transition(anim.anm_name) then return end
+    local actor = db.actor
+    local held = actor and actor:alive() and actor:active_item()
+    if not held or held:id() ~= obj:id() then return end
+    local f = factor()
+    if f == 1 then return end
+    -- The ordered GAMMA mutator runs after Fast Hands; preserve its speed.
+    if type(anim.anm_speed) == "number" and anim.anm_speed > 0 then
+        anim.anm_speed = anim.anm_speed / f
+    end
+end
+
+local function hook_animation()
+    if animation_registered then return end
+    if animation_common and type(animation_common.add_anim_mutator) == "function" then
+        animation_common.add_anim_mutator(mutate_animation, 1000000)
+        animation_registered = true
+    end
+    -- No unordered fallback: Fast Hands could overwrite its result.
+    -- Without animation_common, the engine transition bonus still works.
+end
+
+local function actor_on_update()
+    hook_ergonomics()
+    hook_animation()
+    apply()
+end
+
+local function actor_on_changed_slot()
+    restore()
+    apply()
+end
+
+local function actor_on_item_drop(obj)
+    if tracked and obj and obj:id() == tracked.id then restore() end
+end
+
+local function on_net_destroy(obj)
+    -- Never dereference the previously cached weapon after destruction.
+    if tracked and obj and obj:id() == tracked.id then tracked = nil end
+end
+
+function on_game_start()
+    if started then return end
+    started = true
+    tracked = nil
+    RegisterScriptCallback("actor_on_update", actor_on_update)
+    RegisterScriptCallback("actor_on_changed_slot", actor_on_changed_slot)
+    RegisterScriptCallback("actor_on_item_drop", actor_on_item_drop)
+    RegisterScriptCallback("game_object_on_net_destroy", on_net_destroy)
+    rpg_gamma_patch.listen("perk_quick_aim", function() apply() end)
+    hook_ergonomics()
+    hook_animation()
+end
