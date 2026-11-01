@@ -2,7 +2,7 @@
 
 Skills, traits and tasks for S.T.A.L.K.E.R. Anomaly / GAMMA / CLIKRAD.
 
-**Current version: 1.7.5 TEST.** In-game verification is still required.
+**Current version: 1.7.5 TEST.**
 
 - 66 skills, 224 ranks.
 - A PDA skill window accessed through Launcher MAC.
