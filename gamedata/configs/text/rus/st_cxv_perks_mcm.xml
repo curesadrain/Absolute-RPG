@@ -1,12 +1,11 @@
-<?xml version="1.0" encoding="windows-1251"?>
+<?xml version='1.0' encoding='windows-1251'?>
 <string_table>
 	<string id="ui_mcm_menu_rpg_redux">
 		<text>РПГ система</text>
 	</string>
 	<string id="ui_mcm_rpg_redux_title">
-		<text>Настройки перков RPG Redux</text>
+		<text>Absolute RPG — настройки навыков</text>
 	</string>
-	
 	<string id="ui_mcm_rpg_redux_exalted_enable_scorcher">
 		<text>Включить «Выжигатель мозгов» и ЧМ для Греха/Монолита («Избранный»)?</text>
 	</string>
@@ -17,7 +16,6 @@
 			\n%c[d_red]Высока вероятность сломать себе игру во многих местах — НЕ РЕКОМЕНДУЕТСЯ
 		</text>
 	</string>
-	
 	<string id="ui_mcm_rpg_redux_wick_slayer_reload">
 		<text>Бонусы к перезарядке от перков «Режима Уика» / «Палач Зоны»?</text>
 	</string>
@@ -26,8 +24,7 @@
 			Включение этой опции вернёт перкам «Режим Уика» и «Палач Зоны» их старые бонусы +30% к скорости перезарядки соответствующего оружия в дополнение к текущим эффектам.\n
 			\nВыключение уберёт эти бонусы к перезарядке (перк «Быстрая перезарядка» не затрагивается).
 		</text>
-	</string>	
-
+	</string>
 	<string id="ui_mcm_rpg_redux_perk_sfx_enable">
 		<text>Включить звуковые эффекты перков?</text>
 	</string>
@@ -38,7 +35,6 @@
 		\nГромкость эффектов зависит от ваших общих настроек громкости звука/эффектов в игре.
 		</text>
 	</string>
-	
 	<string id="ui_mcm_rpg_redux_transfer_progression_enable">
 		<text>Включить совместимость с трансфером персонажа?</text>
 	</string>
@@ -50,7 +46,6 @@
 			\n%c[yellow]ВАЖНО: Обязательно нажмите «Применить/Сохранить» в MCM после изменения этой опции ПЕРЕД экспортом персонажа!
 		</text>
 	</string>
-	
 	<string id="ui_mcm_rpg_redux_prestige_point_extra_enable">
 		<text>Включить дополнительные очки престижа?</text>
 	</string>
@@ -64,12 +59,6 @@
 			%c[d_green]Престиж 8–10: +1 доп. очко перка каждые 2 полученных уровня
 		</text>
 	</string>
-	
-	
-	
-	
-	
-	
 	<string id="st_refund_1">
 		<text>Предмет ремонта возвращён!</text>
 	</string>

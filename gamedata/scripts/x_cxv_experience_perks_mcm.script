@@ -1,17 +1,5 @@
 if experience_potions then return end
 
-local options = {
-	id = "xp_addon_arpg_redux", sh = true, gr = {
-	
-		{id = "title", type = "slide", link = "ui_main_experience_mod_options_slider", text = "ui_mcm_xp_addon_arpg_redux_title", size = {512,50}, spacing = 20},
-		{id = "divider", type = "line"},
-		
-		{id = "G_MAX_LEVEL", type = "track", val = 2, min = 1, max = 300, step = 1, def = 300},
-		{id = "G_SKILLPOINT_PER_LEVEL", type = "track", val = 2, min = 1, max = 10, step = 1, def = 1},
-		{id = "divider", type = "line"},
-	}
-}
-
 local ilrath_preset = {
 	-- stalkers base xp
 	stalker					= 30,
@@ -102,10 +90,7 @@ local ilrath_preset = {
 }
 
 if experience_mcm then
-	--if experience_mcm.add_option then
-		--experience_mcm.add_option(options)
-	--end
 	if experience_mcm.add_preset then
-		experience_mcm.add_preset("RPG Redux Preset", ilrath_preset)
+		experience_mcm.add_preset("Absolute RPG Preset", ilrath_preset)
 	end
 end

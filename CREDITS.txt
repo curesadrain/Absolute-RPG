@@ -1,0 +1,24 @@
+Absolute RPG — авторство и сторонние работы
+
+Сборка и развитие Absolute RPG: Sorano.
+
+Experience Framework: Orleon (отдельная обязательная зависимость).
+RPG Perks Pack и унаследованные навыки: ilrathCXV и Orleon.
+
+Mod App Creator: Ncenka. Образец интеграции ПДА: Eslider Skill System PDA.
+Immersive Identification: dxshie; использована предоставленная адаптация
+Wearable Devices 0.9.2. Остальные ресурсы зависимости сюда не включены.
+Artefact Limb Healing: ilrathCXV, Copyright (c) 2023, MIT.
+Полный текст лицензии: licenses/Artefact_Limb_Healing_LICENSE.txt.
+Приёмы ускорения разделки адаптированы из Dorn's Faster Skinning 0.9.0: Dorn.
+FDDA Redone: lizzardman (внешняя зависимость).
+GAMMA Mags Reloaded Forked: AndTheHeroIs и Priler (внешняя зависимость).
+Animated Magazine Loading: SkyKi; профиль CLIKRAD с анимациями содержит
+адаптированный magazines_aml.script из предоставленной версии.
+Dynamic Reload Speeds: Verdatim (внешняя интеграция).
+Milspec PDA: Catspaw (внешняя зависимость; ресурсы ПДА не включены).
+GAMMA и Perk-Based Artefacts остаются самостоятельными внешними проектами.
+
+Упоминание автора или проекта не означает одобрения этой сборки.
+Этот список не заменяет лицензии и не предоставляет дополнительных прав
+на сторонние работы. Права на них сохраняются за соответствующими авторами.

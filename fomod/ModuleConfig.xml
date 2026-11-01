@@ -1,10 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://qconsulting.ca/fo3/ModConfig5.0.xsd">
-  <moduleName>Absolute RPG v1.7.4 TEST</moduleName>
+  <moduleName>Absolute RPG v1.7.5 TEST</moduleName>
   <requiredInstallFiles>
     <folder source="gamedata" destination="gamedata" priority="0" />
     <folder source="licenses" destination="licenses" priority="0" />
     <file source="README_RU.txt" destination="README_RU.txt" priority="0" />
+    <file source="CREDITS.txt" destination="CREDITS.txt" priority="0" />
   </requiredInstallFiles>
   <installSteps order="Explicit">
     <installStep name="Выберите систему магазинов">
@@ -12,13 +13,13 @@
         <group name="Совместимость магазинного питания" type="SelectExactlyOne">
           <plugins order="Explicit">
             <plugin name="GAMMA/No Mags">
-              <description>Обычная GAMMA: Mags Redux или его модификация — зависимость, указанная в исходном перке XP Redux. Сохраняет исходную механику и описание «Быстрой снарядки» из Redux. Если играете без магазинного питания, оставляйте этот вариант: перк просто не даёт эффекта.</description>
+              <description>Для обычной GAMMA или игры без отдельной системы магазинов. «Быстрая снарядка» работает только при наличии совместимого магазинного мода.</description>
               <typeDescriptor>
                 <type name="Recommended" />
               </typeDescriptor>
             </plugin>
             <plugin name="CLIKRAD без анимаций">
-              <description>Для GAMMA Mags Reloaded Forked v1.05 — AndTheHeroIs &amp; Priler. Подходит без Animated Magazine Loading либо когда его анимированная зарядка выключена. Dynamic Reload Speeds v1.1 — Verdatim может оставаться установленным: он управляет перезарядкой оружия и не требуется для этого бонуса зарядки/разрядки. Включает прогрессию CLIKRAD и бонусы мест под магазины.</description>
+              <description>Для GAMMA Mags Reloaded Forked без анимированной зарядки. «Быстрая снарядка» ускоряет работу с магазинами и добавляет места на надетом костюме. Не выбирайте этот вариант при включённых анимациях AML.</description>
               <files>
                 <folder source="variants/clikrad/gamedata" destination="gamedata" priority="10" />
               </files>
@@ -27,7 +28,7 @@
               </typeDescriptor>
             </plugin>
             <plugin name="CLIKRAD с анимациями">
-              <description>Для GAMMA Mags Reloaded Forked v1.05 — AndTheHeroIs &amp; Priler вместе с Animated Magazine Loading v0.9 Beta — SkyKi; интеграция AML должна быть включена в MCM магазинов. В наборе также может использоваться Dynamic Reload Speeds v1.1 — Verdatim (перезарядка оружия). Ускоряет анимации и фактический перенос патронов; при выключении AML поддерживает обычную зарядку. Absolute RPG должен побеждать конфликт magazines_aml.script. Включает прогрессию CLIKRAD и бонусы мест.</description>
+              <description>Для GAMMA Mags Reloaded Forked и Animated Magazine Loading. Включите интеграцию AML в настройках магазинов. «Быстрая снарядка» ускоряет зарядку и разрядку, включая анимации, и добавляет места на надетом костюме.</description>
               <files>
                 <folder source="variants/clikrad_aml/gamedata" destination="gamedata" priority="10" />
               </files>

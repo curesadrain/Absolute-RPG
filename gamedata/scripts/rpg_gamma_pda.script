@@ -1,5 +1,5 @@
--- RPG GAMMA: native MAC app for Experience Framework.
-assert(mac_mcm and mac_mcm.add_app, "RPG GAMMA Unified PDA requires Mod App Creator (MAC).")
+-- Absolute RPG: native MAC app for Experience Framework.
+assert(mac_mcm and mac_mcm.add_app, "Absolute RPG requires Mod App Creator (MAC).")
 mac_mcm.add_app("rpg_gamma", {
     name = "rpg_gamma_pda_title",
     texture = "ui_experience_btn_skills_wnd",

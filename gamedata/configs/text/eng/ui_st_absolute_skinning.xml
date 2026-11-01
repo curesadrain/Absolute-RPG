@@ -1,15 +1,15 @@
 <?xml version='1.0' encoding='windows-1251'?>
 <string_table>
-  <string id="st_perk_field_dresser">
-    <text>Field Dresser</text>
-  </string>
-  <string id="st_perk_field_dresser_desc">
-    <text>In the Zone, a carcass makes poor cover. You know where to guide the blade: take what you need and leave before the blood brings the next predator.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Mutant skinning animation speed x2: the cut takes half as long relative to the current FDDA Redone speed. Knife wear from skinning is reduced by 50% of the actual condition loss in the original system. One rank.\n \n%c[d_red]REQUIRES the FDDA Redone mutant skinning module (liz_fdda_redone_mutant_skinning / lam2). Without it, the perk has no effect. This integration does not support classic FDDA.</text>
-  </string>
-  <string id="st_perk_field_dresser_desc_0">
-    <text>In the Zone, a carcass makes poor cover. You know where to guide the blade: take what you need and leave before the blood brings the next predator.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Mutant skinning animation speed x2: the cut takes half as long relative to the current FDDA Redone speed. Knife wear from skinning is reduced by 50% of the actual condition loss in the original system. One rank.\n \n%c[d_red]REQUIRES the FDDA Redone mutant skinning module (liz_fdda_redone_mutant_skinning / lam2). Without it, the perk has no effect. This integration does not support classic FDDA.</text>
-  </string>
-  <string id="st_perk_field_dresser_desc_1">
-    <text>In the Zone, a carcass makes poor cover. You know where to guide the blade: take what you need and leave before the blood brings the next predator.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Mutant skinning animation speed x2: the cut takes half as long relative to the current FDDA Redone speed. Knife wear from skinning is reduced by 50% of the actual condition loss in the original system. One rank.\n \n%c[d_red]REQUIRES the FDDA Redone mutant skinning module (liz_fdda_redone_mutant_skinning / lam2). Without it, the perk has no effect. This integration does not support classic FDDA.</text>
-  </string>
+	<string id="st_perk_field_dresser">
+		<text>Field Dresser</text>
+	</string>
+	<string id="st_perk_field_dresser_desc">
+		<text>%c[ui_gray_2]A sharp knife and a knowledge of anatomy save time over a carcass. Clean cuts get the trophies out with less wear on the blade.\n\n%c[ui_gray_3]Effects:\n%c[ui_gray_2]- Mutant skinning is twice as fast.\n- Knife wear from skinning: -50%.\n\n%c[d_red]Requires FDDA Redone mutant skinning. Classic FDDA is not supported.%c[ui_gray_2]</text>
+	</string>
+	<string id="st_perk_field_dresser_desc_0">
+		<text>In the Zone, a carcass makes poor cover. You know where to guide the blade: take what you need and leave before the blood brings the next predator.\n \n%c[ui_gray_3]EFFECTS:\n%c[ui_gray_2]Mutant skinning animation speed x2: the cut takes half as long relative to the current FDDA Redone speed. Knife wear from skinning is reduced by 50% of the actual condition loss in the original system. One rank.\n \n%c[d_red]REQUIRES the FDDA Redone mutant skinning module (liz_fdda_redone_mutant_skinning / lam2). Without it, the perk has no effect. This integration does not support classic FDDA.</text>
+	</string>
+	<string id="st_perk_field_dresser_desc_1">
+		<text>%c[ui_gray_2]A sharp knife and a knowledge of anatomy save time over a carcass. Clean cuts get the trophies out with less wear on the blade.\n\n%c[ui_gray_3]Effects:\n%c[ui_gray_2]- Mutant skinning is twice as fast.\n- Knife wear from skinning: -50%.\n\n%c[d_red]Requires FDDA Redone mutant skinning. Classic FDDA is not supported.%c[ui_gray_2]</text>
+	</string>
 </string_table>
